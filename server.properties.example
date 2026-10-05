@@ -17,3 +17,13 @@ discovery.port=8888
 
 # How many days a login lasts before the player has to log in again.
 token.days=7
+
+# Waits in a room. 0 means "at once".
+# Pause between the end of one hand and the start of the next, in milliseconds.
+hand.delay.ms=3000
+# Pause before each card when the board is dealt with everyone all-in, in milliseconds.
+runout.pause.ms=1000
+# How long a disconnected player keeps their turn timer before being sat out, in seconds.
+reconnect.grace.seconds=60
+# A room with nobody connected for this many minutes closes.
+room.idle.minutes=30

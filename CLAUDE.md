@@ -63,6 +63,7 @@ SLF4J + Logback.
 ./mvnw -pl poker-client-fx -am compile javafx:run               # desktop app
 ./mvnw -pl poker-client-fx -am -DskipTests package              # builds poker-client-fx/target/holdem-client
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500"   # soak: bots make their own room
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
@@ -75,6 +76,12 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   skipped by default; each test class works in its own temporary schema, never the real tables.
 - `server.properties` is optional (defaults match `docker-compose.yml`). The server log is
   `data/logs/server.log`.
+- For a bot soak run, start the server with no waits between hands by adding
+  `-Dholdem.config=$PWD/poker-bot-client/soak-server.properties` (an absolute path) to the
+  `cargo:run` command. With `--room` the bots join a room a person hosts; without it they create
+  one, start it, and close it when done. Exit code 0 means no problems.
+- Room tests drive a `Room` directly through `RoomHarness` (no threads, timers fire on demand);
+  `RoomManagerTest` runs rooms on their real threads.
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
 

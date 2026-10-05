@@ -1,5 +1,7 @@
 package com.saksham.poker.server.bootstrap;
 
+import com.saksham.poker.common.protocol.MessageCodec;
+import com.saksham.poker.engine.card.SecureDeckFactory;
 import com.saksham.poker.server.auth.PasswordHasher;
 import com.saksham.poker.server.auth.SessionService;
 import com.saksham.poker.server.db.AuthTokenDao;
@@ -9,14 +11,20 @@ import com.saksham.poker.server.db.RoomDao;
 import com.saksham.poker.server.db.UserDao;
 import com.saksham.poker.server.io.ServerConfig;
 import com.saksham.poker.server.lan.NetworkInfo;
+import com.saksham.poker.server.room.AsyncRoomStore;
 import com.saksham.poker.server.room.RoomCodeGenerator;
+import com.saksham.poker.server.room.RoomManager;
 import com.saksham.poker.server.room.RoomService;
+import com.saksham.poker.server.ws.ConnectionRegistry;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
 import java.time.Clock;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +35,14 @@ public class AppContextListener implements ServletContextListener {
 
     private static final Logger log = LoggerFactory.getLogger(AppContextListener.class);
 
+    /** Turn timers, the pause between hands and reconnect grace all share these threads. */
+    private static final int TIMER_THREADS = 2;
+
     private DataSourceProvider database;
+    private ScheduledExecutorService timers;
+    private AsyncRoomStore roomStore;
+    private RoomManager roomManager;
+    private ConnectionRegistry connections;
 
     @Override
     public void contextInitialized(ServletContextEvent event) {
@@ -56,10 +71,21 @@ public class AppContextListener implements ServletContextListener {
         }
         tokens.deleteExpired(clock.instant());
 
+        AtomicInteger timerNumber = new AtomicInteger();
+        timers = Executors.newScheduledThreadPool(TIMER_THREADS, runnable -> {
+            Thread thread = new Thread(runnable, "room-timer-" + timerNumber.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
+        roomStore = new AsyncRoomStore(rooms, clock);
+        roomManager = new RoomManager(timers, roomStore, config.roomTimings(), new SecureDeckFactory(), clock);
+        connections = new ConnectionRegistry();
+
         SessionService sessions = new SessionService(users, tokens, new PasswordHasher(), clock,
                 config.tokenLifetime());
-        RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator());
-        new AppContext(config, sessions, roomService).storeIn(servletContext);
+        RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator(), roomManager);
+        new AppContext(config, sessions, roomService, roomManager, connections, new MessageCodec())
+                .storeIn(servletContext);
 
         List<String> urls = NetworkInfo.serverUrls(config.httpPort(), servletContext.getContextPath());
         if (urls.isEmpty()) {
@@ -74,6 +100,20 @@ public class AppContextListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent event) {
+        AppContext.clear();
+        // Stop taking work first, then let what is already queued for the database finish.
+        if (connections != null) {
+            connections.closeAll();
+        }
+        if (roomManager != null) {
+            roomManager.shutdown();
+        }
+        if (timers != null) {
+            timers.shutdownNow();
+        }
+        if (roomStore != null) {
+            roomStore.close();
+        }
         if (database != null) {
             database.close();
             log.info("Hold'em server stopped");

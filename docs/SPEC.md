@@ -146,28 +146,58 @@ it, when everyone leaves, or after 30 min with nobody connected.
 | Shared `ScheduledExecutorService` (2 threads) | turn timers, next-hand delay, run-out pauses, reconnect grace | schedules commands into the room queue |
 | Per-connection sender (virtual thread) | one WebSocket session | `Connection.send()` queue |
 | `HandRecordWriter` | JDBC writes of finished hands | `BlockingQueue<HandRecord>` |
+| `room-store` (one thread) | JDBC writes of room state changes | `AsyncRoomStore.saveState()` queue |
 | `DiscoveryResponder` | UDP socket on port 8888 | replies to LAN broadcasts |
 
 4.3 **Commands** (subclasses of abstract `RoomCommand` with `execute(Room)`): `JoinRoom`,
 `TakeSeat`, `LeaveRoom`, `StartGame`, `PauseGame`, `ResumeGame`, `KickPlayer`, `EndRoom`,
 `PlayerActionCmd`, `SitOut`, `SitIn`, `Rebuy`, `Chat`, `TurnTimeout`, `Disconnected`,
-`Reconnected`, `StartNextHand`. Stale timeouts ignored via `turnId`.
+`Reconnected`, `StartNextHand`, plus `SendSnapshot` and the timer commands `ReconnectGraceExpired`,
+`ContinueDelivery` (run-out pause) and `IdleCheck`. Stale timeouts ignored via `turnId`; the
+other timers carry a generation number for the same purpose. A command the rules refuse is
+answered with `ERROR` to its sender and changes nothing; an unexpected failure is logged and the
+room carries on.
 
 4.4 **Timing** (`server.properties`): turn time from room settings (default 25 s), 3 s between
-hands, 1 s pause per run-out street, 60 s reconnect grace (sat out after grace).
+hands, 1 s pause per run-out street, 60 s reconnect grace (sat out after grace). The waits are
+the settings `hand.delay.ms`, `runout.pause.ms`, `reconnect.grace.seconds` and
+`room.idle.minutes`; 0 means at once.
 
 **When a turn times out** (connected or not): the room checks for the player if checking is
-legal, otherwise folds them. It never calls or bets for them.
+legal, otherwise folds them. It never calls or bets for them. The player is then sat out, and
+for the rest of that hand is checked or folded at once without waiting, so one absent player
+cannot hold up every hand. `SIT_IN` puts them back in control. The same happens to a
+disconnected player whose grace runs out.
+
+**Sitting out** takes effect from the next hand; the current hand is played normally.
+
+**Waiting for the big blind.** A player who sits down in a running game, sits back in, or rebuys
+is dealt in only when the big blind reaches their seat: when they sit between the small blind and
+the player who would have been big blind, they are dealt in and post it. With fewer than two
+other players ready, nobody waits. The button moves one ready player clockwise each hand and
+never lands on a waiting player.
+
+**Run-outs.** The engine deals the rest of the board at once; the room reveals it a street at a
+time with the pause, and a snapshot taken meanwhile shows only what has been revealed.
+
+**Membership.** A room holds at most `maxPlayers` people, seated or not; one more is `ROOM_FULL`.
+Seats are numbered 0 to `maxPlayers − 1`, and can be changed only before the game starts. The
+host need not be seated. A kick is refused once the game has started, and the host cannot kick
+themselves. A hand in progress when the host ends the room is abandoned.
 
 4.5 **SeatController seam:**
 ```java
 public abstract class SeatController {
     protected final long userId;
     public abstract void onActionRequested(ActionRequest request);
-    public abstract void onEvent(PlayerView event);   // already filtered for this player
+    public abstract void onEvent(ServerMessage event);   // already filtered for this player
     public abstract boolean isConnected();
 }
 ```
+What a player may see is exactly a protocol `ServerMessage`, so the controller receives those;
+there is no separate `PlayerView` type. `EventRouter` turns each engine event into the message
+for each viewer and is the only place hole cards are filtered. `RemoteHumanController` forwards
+to the user's current connection.
 
 4.6 **LAN:** server binds to `0.0.0.0:8080`; on startup it logs
 `Players can connect to: http://192.168.x.x:8080/poker`. `DiscoveryResponder` listens on UDP
@@ -179,7 +209,11 @@ network.
 
 ## 5. Protocol (WebSocket, JSON)
 
-Endpoint `ws://<host-ip>:8080/poker/ws/game?token=<token>`; bad token → close 4401.
+Endpoint `ws://<host-ip>:8080/poker/ws/game?token=<token>`; bad token → close 4401. A user has one
+connection: connecting again closes the older one with 4000. A connection silent for 60 s is
+dropped, so clients send `PING` every 15 s. Sending `JOIN_ROOM` for the room you are already in is
+how a client reconnects: it gets a fresh `ROOM_SNAPSHOT`, and its turn again if it is its turn.
+A request sent while in no room is answered `NOT_IN_ROOM`.
 Envelope `{ "type", "seq", "payload" }`. `seq` is the sender's counter for the connection; the
 server's goes up by one per message so a client can spot a gap and send `REQUEST_SNAPSHOT`.
 `payload` may be left out when a message has no fields. Cards are text such as `"Ah"`.
@@ -377,8 +411,11 @@ never send other players' cards or deck order; chat length-limited and escaped i
   chip conservation.
 - **Server:** `RoomActor` tests with fake controllers (join, start, timeout, disconnect,
   reconnect, host leaves, rebuy); DAO tests against local Postgres (`@Tag("db")`); codec round trips.
-- **Bots:** `poker-bot-client` joins a room by code with N bots playing random legal actions;
-  asserts no foreign hole cards received. Target: 6 bots, 500 hands, no errors.
+- **Bots:** `poker-bot-client` joins a room by code with N bots playing random legal actions, or
+  with no code creates its own room and starts it. Each bot reports another player's hole
+  cards, a skipped sequence number, a hand whose wins and losses do not total zero, a stack that
+  changed between hands, and any refusal it did not provoke. Target: 6 bots, 500 hands, no
+  problems. For speed the server is started with `poker-bot-client/soak-server.properties`.
 - **Manual:** `docs/QA.md` checklist for a 3-laptop LAN demo.
 
 ---

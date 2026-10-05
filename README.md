@@ -9,11 +9,12 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 4 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
+**Status:** Phase 5 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
 betting, side pots, showdown) and is tested on 100,000 random hands. Every message the app and
-server will exchange is defined and tested as JSON. The server has a database and an API: you can
-register, log in, create a room and look one up by its code. Rooms cannot be joined or played in
-yet, and the desktop app is still an empty window.
+server will exchange is defined and tested as JSON. The server has a database, an API and live
+rooms over WebSocket: players join by code, take seats, and play real hands with turn timers,
+sitting out, rebuys and reconnecting. Bots can play it today; the desktop app for people is still
+an empty window.
 
 ## Modules
 
@@ -92,6 +93,30 @@ Start the desktop app:
 ```bash
 ./mvnw -pl poker-client-fx -am compile javafx:run
 ```
+
+## Watching bots play
+
+With the server running, this makes six bots create a room and play 100 hands against each other,
+over the same connection a person's app will use:
+
+```bash
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6"
+```
+
+It ends with a line such as `Finished: 6 bots played 104 hands in room ABC234 with no problems`.
+At normal speed a hand takes a few seconds. For a fast run of hundreds of hands, start the server
+with no waits between hands instead:
+
+```bash
+./mvnw -pl poker-server -am -DskipTests package cargo:run -Dholdem.config=$PWD/poker-bot-client/soak-server.properties
+```
+
+```bash
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500"
+```
+
+Add `--room ABC234` to make the bots join a room you are hosting instead of creating their own.
+The bots use accounts named `bot_1` to `bot_9`, which they register the first time.
 
 ## Giving the app to other players
 
