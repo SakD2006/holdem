@@ -1,0 +1,4 @@
+# Migration files in this folder, in the order they are applied. One per line.
+# To change the schema, add a new file (V2__what_it_does.sql) and list it here. Never edit a file
+# that has already been applied.
+V1__init.sql

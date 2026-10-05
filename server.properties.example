@@ -1,12 +1,19 @@
 # Hold'em server settings. Copy this file to "server.properties" on the host machine and edit it.
 # server.properties is not committed, because it holds the database password.
+# Every setting is optional: the values below are the defaults, and they match docker-compose.yml.
 
-# PostgreSQL on the host machine. These values match docker-compose.yml.
+# PostgreSQL on the host machine.
 db.url=jdbc:postgresql://localhost:5433/holdem
 db.user=holdem
 db.password=holdem
+# The most database connections kept open at once.
+db.pool.size=5
 
 # Ports. Other PCs must be allowed through the firewall on both.
-# http.port is informational: Tomcat's port is set in poker-server/pom.xml (cargo.servlet.port).
+# http.port is only used to tell players where to connect: Tomcat's own port is set in
+# poker-server/pom.xml (cargo.servlet.port). Change both together.
 http.port=8080
 discovery.port=8888
+
+# How many days a login lasts before the player has to log in again.
+token.days=7

@@ -210,7 +210,10 @@ carries `canBet` and `canRaise` so the client knows which of the two to send.
 `ErrorCode`: `NOT_YOUR_TURN, INVALID_ACTION, INVALID_AMOUNT, ROOM_NOT_FOUND, ROOM_FULL,
 ROOM_CLOSED, SEAT_TAKEN, NOT_HOST, GAME_ALREADY_STARTED, NOT_ENOUGH_PLAYERS, REBUY_NOT_ALLOWED,
 NOT_IN_ROOM, ALREADY_IN_ROOM, INVALID_CREDENTIALS, USERNAME_TAKEN, MALFORMED_MESSAGE,
-UNAUTHORIZED, INTERNAL`.
+INVALID_REQUEST, UNAUTHORIZED, INTERNAL`.
+
+`INVALID_REQUEST` means the request was readable but its contents are not acceptable (a username
+that is too short, a room with 12 seats).
 
 `GAME_ALREADY_STARTED` answers a second `START_GAME`; it does not stop new players joining.
 `UNAUTHORIZED` means a missing or expired token.
@@ -224,6 +227,19 @@ UNAUTHORIZED, INTERNAL`.
 `POST /api/auth/logout` · `POST /api/rooms` (create → `{code}`) · `GET /api/rooms/{code}`
 (preview before joining) · `GET /api/hands?mine=true&page=` · `GET /api/hands/{id}` ·
 `GET /api/leaderboard`.
+
+- Bodies are JSON; the shapes are the records in `poker-common` `com.saksham.poker.common.api`.
+  Creating a room sends the room settings (`name, maxPlayers, smallBlind, bigBlind,
+  startingStack, turnSeconds, rebuyAllowed`).
+- Register answers like login, `{token, user}`, so a new player goes straight in.
+- Every other route except ping needs `Authorization: Bearer <token>`.
+- A failed request answers `{code, message}` with an `ErrorCode` and a matching HTTP status:
+  400 for `INVALID_REQUEST`, 401 for `UNAUTHORIZED` and `INVALID_CREDENTIALS`, 403 for `NOT_HOST`,
+  404 for `ROOM_NOT_FOUND`, 500 for `INTERNAL`, and 409 for the rest.
+- Usernames are 3–24 letters, digits or underscores, and unique ignoring case. Passwords are
+  6–72 characters. Room settings are checked against the ranges in §1 (name 1–40 characters,
+  blinds at least 1, big blind at least the small blind, starting stack at least the big blind).
+- A room code typed in lower case or with spaces around it is accepted.
 
 **JSP pages** (served by the same server, open from any browser on the LAN; servlets are
 controllers, JSPs in `WEB-INF/views/`, JSTL + EL only, `<c:out>` for user text):
@@ -264,6 +280,12 @@ hand_actions(id BIGSERIAL PK, hand_id BIGINT FK, seq INT, user_id BIGINT FK, str
 
 - `hand_actions.action` is one of `POST_SB, POST_BB, FOLD, CHECK, CALL, BET, RAISE`. Blind posts
   are rows too, so a replay can show them. `amount` is the chips put in by that action.
+- `users.username` is unique ignoring case (a unique index on `LOWER(username)`).
+- `auth_tokens.token` holds the SHA-256 of the token, not the token, so a copy of the database
+  cannot be used to log in. A login stores the token and stamps `last_login_at` in one transaction.
+- Migrations are listed in `db/migrations.txt` and recorded in `schema_version`.
+- Rooms live in the server's memory. At startup every room the database still shows as open is
+  marked `CLOSED`.
 - A finished hand is saved in ONE JDBC transaction (commit/rollback) by `HandRecordWriter`.
 - Other players' folded hole cards are never returned by the API.
 - Leaderboard: `SUM(net)`, `COUNT(*)`, `SUM(won::int)` grouped by user.
@@ -274,7 +296,8 @@ hand_actions(id BIGSERIAL PK, hand_id BIGINT FK, seq INT, user_id BIGINT FK, str
 
 | File | Who | How |
 |---|---|---|
-| `server.properties` | server | `Properties`; DB URL/user/password, ports, timings |
+| `server.properties` | server | `Properties`; DB URL/user/password, ports, timings. Optional: anything left out keeps its default |
+| `data/logs/server.log` | server (Logback) | the server log, one file per day, kept two weeks |
 | `data/hand-history/room-{code}/{yyyy-MM-dd}.txt` | `HandHistoryFileWriter` | readable text, appended per hand, `BufferedWriter` |
 | `data/failed-hands/*.json` | `HandRecordWriter` | fallback when the DB write fails 3× |
 | `~/.holdem/client.properties` | desktop app | last server IP, last username, sound on/off |
@@ -338,7 +361,9 @@ overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`.
 
 ## 11. Security (basic, LAN-appropriate)
 
-PBKDF2WithHmacSHA256 password hashing (salted); random 32-byte tokens with 7-day expiry;
+PBKDF2WithHmacSHA256 password hashing (salted, 210,000 rounds, stored as
+`pbkdf2$rounds$salt$hash`); random 32-byte tokens with 7-day expiry, stored hashed; a wrong
+password and an unknown username give the same error;
 server validates every action against `LegalActions` and `turnId`; one seat per user per room;
 never send other players' cards or deck order; chat length-limited and escaped in JSP.
 

@@ -107,19 +107,22 @@ have at the end, prompt.
 
 **Concepts:** JDBC, Servlets, file handling (`server.properties`), abstract classes (`BaseDao`, `BaseServlet`), exceptions.
 
-- [ ] `ServerConfig`, `AppContextListener`, `NetworkInfo` (logs the LAN URL on startup).
-- [ ] `DataSourceProvider` (HikariCP), `MigrationRunner`, `V1__init.sql` (§7).
-- [ ] `BaseDao`, `UserDao`, `AuthTokenDao`, `RoomDao`.
-- [ ] `PasswordHasher` (PBKDF2), `SessionService`.
-- [ ] `BaseServlet` (JSON in/out, maps `PokerException` → `ErrorCode` + HTTP status).
-- [ ] API: ping, register, login, logout, create room (returns code), room preview.
-- [ ] `RoomCodeGenerator` (§4.1 alphabet, unique among open rooms); `AuthFilter`, `CharsetFilter`.
-- [ ] Room codes are never reused (`rooms.code` is `UNIQUE`).
-- [ ] Tests: DAOs (`@Tag("db")`), hasher, register/login errors (`USERNAME_TAKEN`,
+- [x] `ServerConfig`, `AppContextListener`, `NetworkInfo` (logs the LAN URL on startup).
+- [x] `DataSourceProvider` (HikariCP), `MigrationRunner`, `V1__init.sql` (§7).
+- [x] `BaseDao`, `UserDao`, `AuthTokenDao`, `RoomDao`.
+- [x] `PasswordHasher` (PBKDF2), `SessionService`.
+- [x] `BaseServlet` (JSON in/out, maps `PokerException` → `ErrorCode` + HTTP status).
+- [x] API: ping, register, login, logout, create room (returns code), room preview.
+- [x] `RoomCodeGenerator` (§4.1 alphabet, unique among open rooms); `AuthFilter`, `CharsetFilter`.
+- [x] Room codes are never reused (`rooms.code` is `UNIQUE`).
+- [x] Tests: DAOs (`@Tag("db")`), hasher, register/login errors (`USERNAME_TAKEN`,
       `INVALID_CREDENTIALS`), code generator uniqueness.
 
 **Done when:** with Postgres running, `curl` can register, log in, create a room and preview it
 by code, both from the host machine and from another PC on the LAN.
+
+*Checked with `curl` on the host machine, through both `127.0.0.1` and its LAN address. Not yet
+tried from a second PC.*
 
 **You'll have:** a real server with a database: you can register, log in and create a room with a code, using `curl` from any PC on the Wi-Fi.
 
