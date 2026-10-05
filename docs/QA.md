@@ -70,6 +70,23 @@ With three players (people or bots) seated, the host presses **Start game**.
 - [ ] After a few seconds the next hand starts and the button has moved one seat.
 - [ ] The hand log on the right follows every action. Your own lines read "You raise", "You win".
 
+## 4a. How it looks and moves
+
+- [ ] At the start of a hand the cards are dealt out from the middle, one round then another, and
+      your own two turn face up.
+- [ ] The flop arrives face down and turns over one card at a time; the turn and river likewise.
+- [ ] At the end of a street the bets slide into the pot and the pot total counts up.
+- [ ] A player who folds has their cards slide away.
+- [ ] At showdown the hands turn over one player at a time. Only after the last one does the
+      winner light up, the pot travel to them and their stack change. The losing hands dim.
+- [ ] Nothing stutters with nine players seated.
+- [ ] **Settings** (home screen): each card back can be chosen and is used at the table after
+      saving. The four-colour deck makes clubs green and diamonds blue.
+- [ ] "Use my own picture" with a PNG or JPEG makes it the card back; a file of another type is
+      refused with a message.
+- [ ] A picture placed at `~/.holdem/cards/Ah.png` replaces the ace of hearts and no other card.
+- [ ] Reconnecting in the middle of a hand shows the table as it is, without replaying the deal.
+
 ## 5. All-ins and side pots
 
 - [ ] Two players go all-in before the flop: the rest of the board is dealt a street at a time with

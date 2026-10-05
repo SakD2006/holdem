@@ -19,6 +19,8 @@ public final class AppConfig {
     private static final String LAST_SERVER = "last.server";
     private static final String LAST_USERNAME = "last.username";
     private static final String SOUND = "sound";
+    private static final String CARD_BACK = "card.back";
+    private static final String FOUR_COLOUR = "deck.four.colour";
 
     private final Path file;
     private final Properties properties = new Properties();
@@ -89,5 +91,23 @@ public final class AppConfig {
 
     public void setSoundOn(boolean on) {
         properties.setProperty(SOUND, Boolean.toString(on));
+    }
+
+    /** The name of the chosen card back design; "crimson" unless the player picked another. */
+    public String cardBack() {
+        return properties.getProperty(CARD_BACK, "crimson");
+    }
+
+    public void setCardBack(String design) {
+        properties.setProperty(CARD_BACK, design);
+    }
+
+    /** True for a four-colour deck: clubs green and diamonds blue, so suits are told apart at a glance. */
+    public boolean fourColourDeck() {
+        return Boolean.parseBoolean(properties.getProperty(FOUR_COLOUR, "false"));
+    }
+
+    public void setFourColourDeck(boolean on) {
+        properties.setProperty(FOUR_COLOUR, Boolean.toString(on));
     }
 }

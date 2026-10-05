@@ -43,6 +43,9 @@ public final class SeatViewModel {
     private final LongProperty won = new SimpleLongProperty();
     /** The kind of hand shown at showdown, such as "Two pair"; empty if not shown. */
     private final StringProperty shownHand = new SimpleStringProperty("");
+    /** This seat's place in the order hands are turned over at showdown, from 0; -1 if not shown. */
+    private final IntegerProperty revealOrder = new SimpleIntegerProperty(-1);
+    private final IntegerProperty dealPosition = new SimpleIntegerProperty();
 
     SeatViewModel(int seat) {
         this.seat = seat;
@@ -117,6 +120,15 @@ public final class SeatViewModel {
         return shownHand;
     }
 
+    public IntegerProperty revealOrderProperty() {
+        return revealOrder;
+    }
+
+    /** This seat's turn in the deal, counted from the player on the button's left; 0 is first. */
+    public IntegerProperty dealPositionProperty() {
+        return dealPosition;
+    }
+
     /** Empties the seat. */
     void clear() {
         occupied.set(false);
@@ -140,5 +152,6 @@ public final class SeatViewModel {
         lastAction.set("");
         won.set(0);
         shownHand.set("");
+        revealOrder.set(-1);
     }
 }

@@ -89,6 +89,10 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   (client test sources), which renders each one to a PNG with sample data. To check its network
   code against a real server, run `ClientSmoke` (same place) and join its room with the bots.
   Both need the client's test classpath (`dependency:build-classpath` with `-Dmdep.includeScope=test`).
+- Movement at the table is timed in `Motion` (client `view`). Views must still be right with
+  `Motion.enabled = false`, which `ViewGallery` uses for its still pictures; it then films one hand
+  with movement on (`film-*.png`) to catch cards mid-flight and mid-flip. Glow effects on the name
+  plates are set in `holdem.css`, because a stylesheet's `-fx-effect` overrides `setEffect` in code.
 - **Before starting a server for a test, check whether one is already running** (`lsof -nP -iTCP:8080`).
   The user may be running their own. Start test servers on other ports
   (`-Dholdem.port=18080 -Dholdem.shutdown.port=18205 -Dholdem.ajp.port=18009`), stop them by their own

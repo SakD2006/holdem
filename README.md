@@ -106,6 +106,17 @@ a room. To fill the room, run the bots with its code:
 
 The app keeps its settings and a remembered login in `~/.holdem`.
 
+### Making the cards your own
+
+**Settings** on the home screen lets you pick one of four card backs, switch to a four-colour deck
+(clubs green, diamonds blue), or use your own picture as the card back: press "Use my own picture"
+and choose a PNG or JPEG. A picture 5 wide by 7 tall fits best, such as 500 by 700 pixels.
+
+To replace card faces as well, put pictures in `~/.holdem/cards/`, named by rank and suit: `Ah.png`
+for the ace of hearts, `Td.png` for the ten of diamonds, `2c.png` for the two of clubs. Ranks are
+`2 3 4 5 6 7 8 9 T J Q K A` and suits are `c d h s`. Any card without a picture keeps its drawn face,
+so you can replace just the court cards or the whole deck.
+
 To run a second server for testing while one is already running, give it its own ports:
 
 ```bash

@@ -82,6 +82,7 @@ public final class RoomState {
     /** When the current turn runs out, by this computer's clock; 0 when nobody is to act. */
     private final LongProperty turnEndsAtMs = new SimpleLongProperty();
     private final ObservableList<Card> yourCards = FXCollections.observableArrayList();
+    private final IntegerProperty playersInHand = new SimpleIntegerProperty();
 
     // ---- the side panel
     private final ObservableList<String> handLog = FXCollections.observableArrayList();
@@ -256,6 +257,18 @@ public final class RoomState {
         handInProgress.set(true);
         handNo.set(started.handNo());
         street.set("PREFLOP");
+        // Work out the order of the deal first, so each seat knows its turn before its cards appear:
+        // clockwise, starting with the player on the button's left.
+        List<Integer> dealt = new ArrayList<>(started.stacks().keySet());
+        dealt.sort((a, b) -> Integer.compare(Math.floorMod(a - started.buttonSeat() - 1, 1_000),
+                Math.floorMod(b - started.buttonSeat() - 1, 1_000)));
+        playersInHand.set(dealt.size());
+        for (int i = 0; i < dealt.size(); i++) {
+            SeatViewModel seat = seatAt(dealt.get(i));
+            if (seat != null) {
+                seat.dealPositionProperty().set(i);
+            }
+        }
         started.stacks().forEach((seatNo, stack) -> {
             SeatViewModel seat = seatAt(seatNo);
             if (seat != null) {
@@ -349,10 +362,13 @@ public final class RoomState {
     private void onShowdown(Showdown showdown) {
         street.set("SHOWDOWN");
         setTurn(null);
+        int order = 0;
         for (ShownHandInfo shown : showdown.hands()) {
             SeatViewModel seat = seatAt(shown.seat());
             String kind = handName(shown.category());
             if (seat != null) {
+                // Set before the cards, so the screen knows when in the sequence to turn them over.
+                seat.revealOrderProperty().set(order++);
                 seat.cards().setAll(shown.cards());
                 seat.shownHandProperty().set(kind);
             }
@@ -627,6 +643,22 @@ public final class RoomState {
             total += seat.streetBetProperty().get();
         }
         return total;
+    }
+
+    /** How many players were dealt into the current hand. */
+    public int playersInHand() {
+        return playersInHand.get();
+    }
+
+    /** How many hands were turned over at the last showdown; 0 if the hand ended without one. */
+    public int handsShown() {
+        int count = 0;
+        for (SeatViewModel seat : seats) {
+            if (seat.revealOrderProperty().get() >= 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public boolean yourTurn() {
