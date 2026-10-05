@@ -9,13 +9,14 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 6 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
+**Status:** Phase 7 of 8, in progress. The rules engine plays complete hands of Hold'em in memory (blinds,
 betting, side pots, showdown) and is tested on 100,000 random hands. Every message the app and
 server will exchange is defined and tested as JSON. The server has a database, an API and live
 rooms over WebSocket: players join by code, take seats, and play real hands with turn timers,
 sitting out, rebuys and reconnecting. Every hand is saved to the database and to readable text
-files, and the API serves hand history, replays and a leaderboard. Bots can play it today; the
-desktop app for people is still an empty window.
+files, and the API serves hand history, replays and a leaderboard. The desktop app lets you
+connect, register or log in, create or join a room and sit in its waiting room; the table itself
+is the next step, so for now only bots can play hands.
 
 ## Modules
 
@@ -94,6 +95,15 @@ Start the desktop app:
 ```bash
 ./mvnw -pl poker-client-fx -am compile javafx:run
 ```
+
+Type the server's address (`127.0.0.1` on the host machine itself), create an account, then create
+a room. To fill the room, run the bots with its code:
+
+```bash
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3 --hands 0"
+```
+
+The app keeps its settings and a remembered login in `~/.holdem`.
 
 ## Watching bots play
 

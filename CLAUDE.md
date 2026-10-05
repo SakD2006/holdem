@@ -85,6 +85,10 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Finished hands go from a room to `HandRecordWriter` (thread `hand-writer`), which appends the text
   history under `data/hand-history/` and saves to the database. After a soak run, check the
   database agrees: `SELECT count(*) FROM hands` for the room should equal the hands the bots report.
+- The desktop app cannot be clicked through from a terminal. To see its screens, run `ViewGallery`
+  (client test sources), which renders each one to a PNG with sample data. To check its network
+  code against a real server, run `ClientSmoke` (same place) and join its room with the bots.
+  Both need the client's test classpath (`dependency:build-classpath` with `-Dmdep.includeScope=test`).
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
 

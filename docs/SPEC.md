@@ -261,7 +261,8 @@ that is too short, a room with 12 seats).
 
 **JSON API (servlets) for the desktop app:** `GET /api/ping` (server name + version, used by
 "Test connection") · `POST /api/auth/register` · `POST /api/auth/login` → `{token, user}` ·
-`POST /api/auth/logout` · `POST /api/rooms` (create → `{code}`) · `GET /api/rooms/{code}`
+`POST /api/auth/logout` · `GET /api/me` (who the token belongs to; the app uses it to check a
+remembered login) · `POST /api/rooms` (create → `{code}`) · `GET /api/rooms/{code}`
 (preview before joining) · `GET /api/hands?mine=true&page=` · `GET /api/hands/{id}` ·
 `GET /api/leaderboard`.
 
@@ -402,6 +403,11 @@ Screens:
 6. **Action panel:** Fold · Check/Call X · Bet/Raise with slider + amount field + presets
    (min, ½ pot, pot, all-in); only legal options enabled; keyboard shortcuts F / C / R.
 7. Side panel: chat + hand log. Sit out / sit in, rebuy, leave.
+
+The server address may be typed as `192.168.1.20`, `192.168.1.20:9090`, or the whole address from
+the server's log. A remembered login is checked with `GET /api/me` at startup: if it is still good
+the app opens on Home, otherwise on the login screen. Closing the window drops the connection but
+keeps the seat. Players see seats numbered from 1; the server numbers them from 0.
 
 Cards and chips drawn with JavaFX shapes (no image assets). Network events → `Platform.runLater`;
 HTTP calls off the UI thread (`Task`/`CompletableFuture`). On disconnect: "Reconnecting…"
