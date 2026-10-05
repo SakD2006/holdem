@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.saksham.poker</groupId>
+  <artifactId>holdem</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Hold'em</name>
+  <description>Multiplayer No-Limit Texas Hold'em: engine, server, JavaFX client and bot client.</description>
+
+  <modules>
+    <module>poker-common</module>
+    <module>poker-engine</module>
+    <module>poker-server</module>
+    <module>poker-client-fx</module>
+    <module>poker-bot-client</module>
+  </modules>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- Tests tagged perf or db are skipped by default. Run them with -DexcludedTags= -->
+    <excludedTags>perf,db</excludedTags>
+
+    <!-- Run goals (cargo:run, javafx:run, exec:java) are off everywhere, and switched on only in
+         the module that owns them. That lets "-pl <module> -am <phase> <goal>" build the modules
+         it depends on without trying to run them. -->
+    <cargo.maven.skip>true</cargo.maven.skip>
+    <javafx.skip>true</javafx.skip>
+    <exec.skip>true</exec.skip>
+    <!-- Both run goals insist on a main class even when skipped; the owning modules set the real ones. -->
+    <exec.mainClass>skipped</exec.mainClass>
+    <javafx.mainClass>skipped</javafx.mainClass>
+
+    <junit.version>5.11.4</junit.version>
+    <assertj.version>3.27.7</assertj.version>
+    <tomcat.version>10.1.60</tomcat.version>
+    <jackson.version>2.18.2</jackson.version>
+    <javafx.version>21.0.12</javafx.version>
+    <servlet.version>6.0.0</servlet.version>
+    <websocket.version>2.1.1</websocket.version>
+    <jstl.version>3.0.0</jstl.version>
+    <jstl-impl.version>3.0.1</jstl-impl.version>
+    <postgresql.version>42.7.4</postgresql.version>
+    <hikari.version>6.2.1</hikari.version>
+    <slf4j.version>2.0.16</slf4j.version>
+    <logback.version>1.5.12</logback.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${assertj.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.saksham.poker</groupId>
+        <artifactId>poker-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.saksham.poker</groupId>
+        <artifactId>poker-engine</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>jakarta.servlet</groupId>
+        <artifactId>jakarta.servlet-api</artifactId>
+        <version>${servlet.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.websocket</groupId>
+        <artifactId>jakarta.websocket-api</artifactId>
+        <version>${websocket.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.websocket</groupId>
+        <artifactId>jakarta.websocket-client-api</artifactId>
+        <version>${websocket.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.servlet.jsp.jstl</groupId>
+        <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
+        <version>${jstl.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.glassfish.web</groupId>
+        <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+        <version>${jstl-impl.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgresql.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>${hikari.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-controls</artifactId>
+        <version>${javafx.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-media</artifactId>
+        <version>${javafx.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!-- Every module tests with JUnit 5 and AssertJ. -->
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.13.0</version>
+          <configuration>
+            <compilerArgs>
+              <arg>-Xlint:all</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.2</version>
+          <configuration>
+            <excludedGroups>${excludedTags}</excludedGroups>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.4.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <version>3.4.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>3.1.3</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.4.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.11.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-maven-plugin</artifactId>
+          <version>0.0.8</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.cargo</groupId>
+          <artifactId>cargo-maven3-plugin</artifactId>
+          <version>1.10.29</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>3.6.4</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <!-- Declared here so the cargo:, javafx: and exec: prefixes resolve in every module. -->
+    <plugins>
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.cargo</groupId>
+        <artifactId>cargo-maven3-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

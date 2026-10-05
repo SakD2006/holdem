@@ -1,0 +1,14 @@
+target/
+data/
+*.class
+*.log
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+.env
+server.local.properties
+server.properties
