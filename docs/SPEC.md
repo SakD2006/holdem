@@ -61,13 +61,17 @@ sit-out waits for the big blind.
 - Facing a bet: FOLD, CALL (capped at stack), RAISE (raise TO an amount).
 - Min raise increment = largest bet/raise increment this street (at least BB). All-in for less is allowed.
 - An all-in raise smaller than a full min raise does **not** reopen betting for players who
-  already acted; they may only call or fold.
+  already acted; they may only call or fold. Betting reopens for a player once the bet has gone
+  up by at least a full raise since they last acted, whether from one raise or several short
+  all-ins added together.
+- A player may bet or raise only if another player still has chips to respond with.
 - `ALL_IN` is converted by the engine into the correct BET/CALL/RAISE.
 - Street ends when every non-folded, non-all-in player has acted and matched the high bet.
 - One player left → wins immediately, no cards shown.
 - All but ≤ 1 remaining players all-in → remaining streets dealt automatically.
 
-2.6 **Uncalled bet** returned before pots are built.
+2.6 **Uncalled bet** returned before pots are built. A bet made by a player who then folded is
+not returned; it stays in the pot.
 
 2.7 **Pots:** main + side pots from total contributions, each with eligible (non-folded) players.
 
@@ -95,6 +99,11 @@ com.saksham.poker.engine
 - `HoldemHand` API: `List<GameEvent> start()`, `LegalActions legalActionsFor(int seat)`,
   `List<GameEvent> apply(int seat, PlayerAction a) throws GameRuleException`,
   `List<GameEvent> forceFold(int seat)`, `boolean isComplete()`, `HandResult result()`.
+- `forceFold` works whether or not it is that seat's turn (a player leaving mid-hand). If the
+  fold is out of turn, the player being waited on gets a new `ActionRequested` only when their
+  options changed.
+- Seats are numbers; clockwise means the next higher seat number, wrapping round. The button
+  must be one of the seats dealt into the hand.
 - The engine has no notion of a timeout. The room decides what a timed-out player does (§4.4)
   and calls `apply(seat, Check)` or `forceFold(seat)`.
 - Events: `HandStarted`, `BlindPosted`, `HoleCardsDealt` (private), `ActionRequested`,

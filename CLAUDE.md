@@ -63,6 +63,8 @@ SLF4J + Logback.
 ./mvnw -pl poker-client-fx -am compile javafx:run               # desktop app
 ./mvnw -pl poker-client-fx -am -DskipTests package              # builds poker-client-fx/target/holdem-client
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
+java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
+     com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
 docker compose up -d                                            # Postgres on localhost:5433 (db/user/password: holdem)
 ```

@@ -9,8 +9,9 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 1 of 8. Cards, the deck and the hand evaluator are built and tested. The server
-starts and answers a ping, and the desktop app opens an empty window. No game can be played yet.
+**Status:** Phase 2 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
+betting, side pots, showdown) and is tested on 100,000 random hands. The server starts and answers
+a ping, and the desktop app opens an empty window. Nothing is playable over the network yet.
 
 ## Modules
 
@@ -74,6 +75,18 @@ needs only Java 21 or newer:
 
 - Windows: double-click `run.bat`
 - macOS or Linux: `sh run.sh`
+
+## Watching the engine play a hand
+
+Prints one hand between six random players:
+
+```bash
+./mvnw -q -pl poker-engine -am test-compile
+```
+
+```bash
+java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes com.saksham.poker.engine.hand.EngineConsoleDemo
+```
 
 ## Tests
 

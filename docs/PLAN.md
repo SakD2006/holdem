@@ -66,17 +66,17 @@ have at the end, prompt.
 
 **Concepts:** abstract class (`GameEvent`), inheritance, polymorphism, collections, exceptions.
 
-- [ ] `HandConfig`, `SeatState`, `Street`, `LegalActions`, `ActionValidator`.
-- [ ] `HoldemHand`: blinds (heads-up, short stack), burns, action order, min-raise, incomplete
+- [x] `HandConfig`, `SeatState`, `Street`, `LegalActions`, `ActionValidator`.
+- [x] `HoldemHand`: blinds (heads-up, short stack), burns, action order, min-raise, incomplete
       all-in rule, street completion, win on folds, auto run-out, uncalled bet, `forceFold`;
       `apply` throws `GameRuleException`.
-- [ ] `PotCalculator`, showdown order, odd chip, `GameEvent` subclasses, `HandResult`.
-- [ ] Chip-conservation assertion.
-- [ ] Scenario tests (stacked decks): heads-up order; 3-way all-in with 2 side pots; incomplete
+- [x] `PotCalculator`, showdown order, odd chip, `GameEvent` subclasses, `HandResult`.
+- [x] Chip-conservation assertion.
+- [x] Scenario tests (stacked decks): heads-up order; 3-way all-in with 2 side pots; incomplete
       all-in doesn't reopen; uncalled bet; split with odd chip; fold to BB; check to showdown;
       short stack on blind.
-- [ ] 100,000-hand random simulation (2–9 seats): no exceptions, chips conserved.
-- [ ] `EngineConsoleDemo` (test sources) prints one simulated hand.
+- [x] 100,000-hand random simulation (2–9 seats): no exceptions, chips conserved.
+- [x] `EngineConsoleDemo` (test sources) prints one simulated hand.
 
 **Done when:** scenarios and simulation pass.
 
