@@ -180,20 +180,32 @@ network.
 ## 5. Protocol (WebSocket, JSON)
 
 Endpoint `ws://<host-ip>:8080/poker/ws/game?token=<token>`; bad token → close 4401.
-Envelope `{ "type", "seq", "payload" }`.
+Envelope `{ "type", "seq", "payload" }`. `seq` is the sender's counter for the connection; the
+server's goes up by one per message so a client can spot a gap and send `REQUEST_SNAPSHOT`.
+`payload` may be left out when a message has no fields. Cards are text such as `"Ah"`.
 
 **Client → server:** `JOIN_ROOM {code}`, `TAKE_SEAT {seat}`, `LEAVE_ROOM`, `START_GAME`,
-`PAUSE_GAME`, `RESUME_GAME`, `KICK {userId}`, `END_ROOM`, `ACTION {turnId, type, amount}`,
+`PAUSE_GAME`, `RESUME_GAME`, `KICK {userId}`, `END_ROOM`, `ACTION {turnId, action, amount}`,
 `SIT_OUT`, `SIT_IN`, `REBUY`, `CHAT {text}`, `REQUEST_SNAPSHOT`, `PING`.
 
 **Server → client:** `ROOM_SNAPSHOT` (settings, state, host, seats, stacks, board, pots, your
 cards, your legal actions if your turn), `PLAYER_JOINED`, `PLAYER_LEFT`, `SEAT_UPDATE`,
 `HOST_CHANGED`, `GAME_STATE` (started/paused/resumed/closed), `HAND_STARTED`, `BLIND_POSTED`,
-`HOLE_CARDS` (owner only), `ACTION_REQUIRED {seat, turnId, canCheck, callAmount, minRaiseTo,
-maxRaiseTo, deadlineEpochMs}`, `PLAYER_ACTED`, `STREET_DEALT`, `POTS_UPDATED`, `SHOWDOWN`,
+`HOLE_CARDS` (owner only), `ACTION_REQUIRED {seat, turnId, canCheck, callAmount, canBet, canRaise,
+minRaiseTo, maxRaiseTo, deadlineEpochMs}`, `PLAYER_ACTED`, `STREET_DEALT`, `BET_RETURNED {seat,
+amount}`, `POTS_UPDATED`, `SHOWDOWN`,
 `HAND_ENDED {payouts, netBySeat}`, `CHAT`, `ERROR {code, message}`, `PONG`.
 
-Abstract `Message` base, Jackson polymorphic on `type`. Max 8 KB. Chat ≤ 200 chars, 1/s.
+Abstract `Message` base, Jackson polymorphic on `type`, with two families: `ClientMessage` and
+`ServerMessage`. `CHAT` exists in both with different fields, so each direction is decoded
+separately and a message from the wrong direction is malformed. Unknown types, missing fields
+and anything over 8 KB (UTF-8 bytes, checked on sending and receiving) are `MALFORMED_MESSAGE`;
+extra fields are ignored. Chat ≤ 200 chars, 1/s.
+
+The exact fields of every message are the classes in `poker-common`
+`com.saksham.poker.common.protocol` (`client`, `server`, and the shared records in `dto`).
+`ACTION` names its field `action`, not `type`, because `type` is the envelope's. `ACTION_REQUIRED`
+carries `canBet` and `canRaise` so the client knows which of the two to send.
 
 `ErrorCode`: `NOT_YOUR_TURN, INVALID_ACTION, INVALID_AMOUNT, ROOM_NOT_FOUND, ROOM_FULL,
 ROOM_CLOSED, SEAT_TAKEN, NOT_HOST, GAME_ALREADY_STARTED, NOT_ENOUGH_PLAYERS, REBUY_NOT_ALLOWED,

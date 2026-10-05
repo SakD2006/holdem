@@ -1,10 +1,15 @@
 package com.saksham.poker.common.card;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** One playing card. Its text form is rank then suit, such as {@code "Ah"} or {@code "Tc"}. */
+/**
+ * One playing card. Its text form is rank then suit, such as {@code "Ah"} or {@code "Tc"}; in JSON a
+ * card is that text.
+ */
 public record Card(Rank rank, Suit suit) {
 
     public Card {
@@ -13,6 +18,7 @@ public record Card(Rank rank, Suit suit) {
     }
 
     /** Reads one card from text such as {@code "Ah"}. */
+    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static Card parse(String text) {
         Objects.requireNonNull(text, "text");
         if (text.length() != 2) {
@@ -46,6 +52,7 @@ public record Card(Rank rank, Suit suit) {
         return text.toString();
     }
 
+    @JsonValue
     @Override
     public String toString() {
         return "" + rank.symbol() + suit.symbol();
