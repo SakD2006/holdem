@@ -219,17 +219,22 @@ hands including an all-in with side pot, chat, sit out, and a reconnect after cl
 
 **Concepts:** JSP, Servlets, multithreading (UDP discovery thread), file handling.
 
-- [ ] JSP pages from §6 (home, leaderboard, room results, hand replay), shared header/footer,
+- [x] JSP pages from §6 (home, leaderboard, room results, hand replay), shared header/footer,
       plain CSS.
-- [ ] `DiscoveryResponder` (server) + "Find server" in the desktop app.
-- [ ] `docs/LAN-SETUP.md`: install Postgres, configure `server.properties`, run server, firewall
+- [x] `DiscoveryResponder` (server) + "Find server" in the desktop app.
+- [x] `docs/LAN-SETUP.md`: install Postgres, configure `server.properties`, run server, firewall
       rules (8080 TCP, 8888 UDP), copy the client to friends' PCs (they need Java 21),
       troubleshooting.
-- [ ] Sounds (your turn, chips, deal), small UI polish, friendly message for every `ErrorCode`.
-- [ ] README with screenshots and the SPEC §9 concept table.
+- [x] Sounds (your turn, chips, deal), small UI polish, friendly message for every `ErrorCode`.
+- [x] README with screenshots and the SPEC §9 concept table.
 
 **Done when:** following `LAN-SETUP.md` on a fresh laptop works; "Find server" finds the host;
 the JSP leaderboard and replays show the demo's hands from any browser on the LAN.
+
+> Checked on the host machine only: "Find server" finds a server on the same computer, by
+> broadcast as well as directly, and the pages show real hands in a browser. **Not yet done:**
+> following `LAN-SETUP.md` on a fresh laptop, and opening the pages from a second device. Both are
+> in `docs/QA.md` (sections 12 to 14), with Phase 7's three-laptop game (section 11).
 
 **You'll have:** the demo-ready project: "Find server" button, sounds, browser pages for leaderboard and hand replays, and a setup guide for a new laptop.
 

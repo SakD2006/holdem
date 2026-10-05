@@ -117,7 +117,7 @@
               <cargo.tomcat.ajp.port>${holdem.ajp.port}</cargo.tomcat.ajp.port>
               <!-- Tomcat runs from a folder under target/, so tell the server where its settings and its
                    data folder (logs, hand histories) are. -->
-              <cargo.jvmargs>-Dholdem.config=${holdem.config} -Dholdem.data=${maven.multiModuleProjectDirectory}/data</cargo.jvmargs>
+              <cargo.jvmargs>-Dholdem.config=${holdem.config} -Dholdem.data=${maven.multiModuleProjectDirectory}/data -Dholdem.port=${holdem.port}</cargo.jvmargs>
             </properties>
           </configuration>
           <deployables>

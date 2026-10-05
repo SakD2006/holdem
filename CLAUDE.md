@@ -97,6 +97,15 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   The user may be running their own. Start test servers on other ports
   (`-Dholdem.port=18080 -Dholdem.shutdown.port=18205 -Dholdem.ajp.port=18009`), stop them by their own
   process id, and do not run `clean` while a server is up: it deletes the folder Tomcat runs from.
+- The web pages are at `http://<host>:8080/poker/` (JSPs in `WEB-INF/views`, one `PageServlet`
+  subclass each, data shaped in `server.web.view`). They need no login, so they must only ever show
+  a hand through `StoredHand.viewFor(-1)`.
+- "Find server" uses UDP 8888. Two servers on one computer cannot share it: give a test server its
+  own with `discovery.port=18888` in the file passed as `-Dholdem.config`, and point the app at it
+  with `-Dholdem.discovery.port=18888`. A server that cannot open the port logs a warning and runs on.
+- Sounds are made in code by `SoundPlayer` (client `util`) and are off until `HoldemApp` turns them
+  on, so tests and `ViewGallery` are silent. `RoomState` announces each `Cue`; `TableView` plays it.
+- README pictures are in `docs/images`: the `app-*` ones are copied from a `ViewGallery` run.
 - `ReconnectSmoke` (client test sources) rehearses a dropped connection with the real `RoomSession`.
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").

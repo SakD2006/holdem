@@ -1,5 +1,6 @@
 package com.saksham.poker.client.net;
 
+import com.saksham.poker.client.util.ErrorMessages;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,7 +140,8 @@ public final class ApiClient {
         try {
             if (response.statusCode() >= 400) {
                 ApiError error = json.readValue(response.body(), ApiError.class);
-                throw new CompletionException(new ApiException(error.code(), error.message()));
+                throw new CompletionException(
+                        new ApiException(error.code(), ErrorMessages.text(error.code(), error.message())));
             }
             if (response.body() == null || response.body().isBlank()) {
                 return null;

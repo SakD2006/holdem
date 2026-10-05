@@ -33,6 +33,7 @@ import com.saksham.poker.common.protocol.server.StreetDealt;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.function.Consumer;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.LongProperty;
@@ -89,10 +90,20 @@ public final class RoomState {
     private final ObservableList<ChatLine> chat = FXCollections.observableArrayList();
     /** The newest refusal from the server. Set afresh each time, even if the text is the same. */
     private final ObjectProperty<ErrorMessage> lastError = new SimpleObjectProperty<>();
+    /** Told of each moment worth a sound. Does nothing until a screen asks to listen. */
+    private Consumer<Cue> cueListener = cue -> { };
 
     // =====================================================================================
     // Applying messages
     // =====================================================================================
+
+    /**
+     * Names who is told of the moments worth marking with a sound. There is one listener at a time:
+     * the screen now showing the table.
+     */
+    public void onCue(Consumer<Cue> listener) {
+        cueListener = listener == null ? cue -> { } : listener;
+    }
 
     /** Updates the state for one message from the server. Messages it does not know are ignored. */
     public void apply(ServerMessage message) {
@@ -278,6 +289,7 @@ public final class RoomState {
             }
         });
         log("Hand #" + started.handNo() + " - blinds " + started.smallBlind() + "/" + started.bigBlind());
+        cueListener.accept(Cue.DEAL);
     }
 
     private void onBlindPosted(BlindPosted blind) {
@@ -308,6 +320,9 @@ public final class RoomState {
         // A turn that has just been announced has its full time left. Counting from now, on this
         // computer's clock, keeps the timer right even if the server's clock is set differently.
         turnEndsAtMs.set(System.currentTimeMillis() + turnMs());
+        if (isYou(required.seat())) {
+            cueListener.accept(Cue.YOUR_TURN);
+        }
     }
 
     private long turnMs() {
@@ -331,6 +346,11 @@ public final class RoomState {
         boolean you = isYou(acted.seat());
         log(nameAt(acted.seat()) + " " + longAction(acted, you)
                 + (acted.allIn() ? (you ? " and are all-in" : " and is all-in") : ""));
+        cueListener.accept(switch (acted.action()) {
+            case FOLD -> Cue.FOLD;
+            case CHECK -> Cue.CHECK;
+            default -> Cue.CHIPS;
+        });
     }
 
     private void onStreetDealt(StreetDealt dealt) {
@@ -342,6 +362,7 @@ public final class RoomState {
         }
         String name = dealt.street().charAt(0) + dealt.street().substring(1).toLowerCase();
         log(name + ": " + cardText(dealt.cards()));
+        cueListener.accept(Cue.BOARD);
     }
 
     private void onBetReturned(BetReturned returned) {
@@ -397,6 +418,9 @@ public final class RoomState {
         for (SeatViewModel seat : seats) {
             if (seat.wonProperty().get() > 0) {
                 log(nameAt(seat.seat()) + (isYou(seat.seat()) ? " win " : " wins ") + seat.wonProperty().get());
+                if (isYou(seat.seat())) {
+                    cueListener.accept(Cue.YOU_WIN);
+                }
             }
         }
     }

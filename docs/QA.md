@@ -1,8 +1,8 @@
-# QA checklist: desktop app
+# QA checklist: desktop app and web pages
 
-A walk through the app by hand. Run it before a demo, and after any change to the app. It needs the
-host machine plus, ideally, two more laptops on the same Wi-Fi; where you are short of people, the
-bots can fill seats.
+A walk through the app and the server's web pages by hand. Run it before a demo, and after any
+change to the app. It needs the host machine plus, ideally, two more laptops on the same Wi-Fi;
+where you are short of people, the bots can fill seats.
 
 Tick a box only if you saw it happen. Seats are numbered from 1 on screen.
 
@@ -160,3 +160,41 @@ Afterwards, on the host machine:
 - [ ] `data/hand-history/room-<code>/<date>.txt` has all 30 hands.
 - [ ] The leaderboard's nets add up to zero.
 - [ ] `data/logs/server.log` has no ERROR lines.
+
+## 12. Find server and sound
+
+- [ ] On a laptop that is not the host, press **Find server** on the connect screen: within two
+      seconds the host's address is filled in and a message says a server was found.
+- [ ] Press **Continue**: the login screen appears.
+- [ ] Stop the server and press **Find server**: it says no server answered and what to check.
+- [ ] On the host machine itself, **Find server** finds it too.
+- [ ] At the table you hear: cards being dealt, a knock for a check, chips for a bet, a chime when
+      it is your turn, and a short tune when you win a pot (after the hands are shown, not before).
+- [ ] No sound is too loud or crackles.
+- [ ] **Settings**, untick "Play sounds at the table", **Save**: the table is silent. Tick it again:
+      a chime plays at once, and sounds are back.
+- [ ] Refuse something on purpose (join a room with a wrong code; log in with a wrong password):
+      each message is a plain sentence that says what to do, never a code in capitals.
+
+## 13. The web pages
+
+Use a browser on a device that is **not** the host: a phone on the same Wi-Fi is ideal.
+
+- [ ] Open `http://<host address>:8080/poker/`: the front page says the server is running and
+      shows the address.
+- [ ] Play a few hands, then reload: "hands played" has gone up and the room is listed as Playing.
+- [ ] **Leaderboard** lists every player, winners in green with a plus sign, losers in red.
+- [ ] Type the room's code in "Look up a room", in lower case: the room's results page opens.
+- [ ] The results add up to zero across the players.
+- [ ] Press **Replay** on a hand that went to showdown: the board, the cards that were shown and
+      every action appear, street by street.
+- [ ] Open the replay of a hand you folded: your cards say "not shown".
+- [ ] A made-up address (`/poker/rooms/ZZZ999`) gives the "Nothing here" page, not an error dump.
+- [ ] On the phone, the pages fit the screen; wide tables scroll sideways.
+
+## 14. A fresh laptop
+
+- [ ] Give `docs/LAN-SETUP.md` and the `holdem-client` folder to someone who has not seen the
+      project. Without help, they get from nothing to seated at the table.
+- [ ] Note anything they had to ask, and fix the guide.
+

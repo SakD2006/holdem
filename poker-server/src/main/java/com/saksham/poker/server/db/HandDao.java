@@ -178,4 +178,36 @@ public class HandDao extends BaseDao<HandSummary> {
                         row.getLong("total_net"), row.getLong("hands_played"), row.getLong("hands_won")),
                 limit);
     }
+
+    /** How many hands have been played on this server. */
+    public long count() {
+        return query("SELECT COUNT(*) FROM hands", row -> row.getLong(1)).get(0);
+    }
+
+    /** How each player did in one room over all its hands, biggest winner first. */
+    public List<RoomStanding> standings(long roomId) {
+        return query("SELECT u.username, COUNT(*) AS hands_played, SUM(p.won::int) AS hands_won, "
+                        + "SUM(p.net) AS total_net "
+                        + "FROM hand_players p JOIN hands h ON h.id = p.hand_id JOIN users u ON u.id = p.user_id "
+                        + "WHERE h.room_id = ? GROUP BY u.id, u.username ORDER BY total_net DESC, u.username",
+                row -> new RoomStanding(row.getString("username"), row.getLong("hands_played"),
+                        row.getLong("hands_won"), row.getLong("total_net")),
+                roomId);
+    }
+
+    /**
+     * The hands played in one room, newest first, each with the names of whoever won it.
+     *
+     * @param limit the most hands to return
+     */
+    public List<RoomHand> handsInRoom(long roomId, int limit) {
+        return query("SELECT h.id, h.hand_no, h.board, h.total_pot, h.ended_at, "
+                        + "COALESCE(STRING_AGG(u.username, ', ' ORDER BY p.seat) FILTER (WHERE p.won), '') AS winners "
+                        + "FROM hands h JOIN hand_players p ON p.hand_id = h.id JOIN users u ON u.id = p.user_id "
+                        + "WHERE h.room_id = ? GROUP BY h.id ORDER BY h.hand_no DESC LIMIT ?",
+                row -> new RoomHand(row.getLong("id"), row.getLong("hand_no"),
+                        Card.parseAll(row.getString("board")), row.getLong("total_pot"), instant(row, "ended_at"),
+                        row.getString("winners")),
+                roomId, limit);
+    }
 }
