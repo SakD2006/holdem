@@ -20,6 +20,9 @@ class BotOptionsTest {
         assertThat(options.room()).isNull();
         assertThat(options.bots()).isEqualTo(3);
         assertThat(options.hands()).isEqualTo(100);
+        // By default bots pause before acting, so a person playing with them can follow.
+        assertThat(options.thinkMinMs()).isEqualTo(800);
+        assertThat(options.thinkMaxMs()).isEqualTo(2_500);
         assertThat(options.httpBase()).isEqualTo("http://192.168.1.20:8080/poker/api");
         assertThat(options.webSocketUrl("abc")).isEqualTo("ws://192.168.1.20:8080/poker/ws/game?token=abc");
     }
@@ -34,6 +37,26 @@ class BotOptionsTest {
         assertThat(options.bots()).isEqualTo(6);
         assertThat(options.hands()).isEqualTo(500);
         assertThat(options.idleSeconds()).isEqualTo(30);
+    }
+
+    @Test
+    void thinkingTimeCanBeARangeOneNumberOrOff() {
+        BotOptions range = parse("--server", "x", "--think", "300-900");
+        assertThat(range.thinkMinMs()).isEqualTo(300);
+        assertThat(range.thinkMaxMs()).isEqualTo(900);
+
+        BotOptions fixed = parse("--server", "x", "--think", "1500");
+        assertThat(fixed.thinkMinMs()).isEqualTo(1_500);
+        assertThat(fixed.thinkMaxMs()).isEqualTo(1_500);
+
+        BotOptions off = parse("--server", "x", "--think", "0");
+        assertThat(off.thinkMinMs()).isZero();
+        assertThat(off.thinkMaxMs()).isZero();
+
+        for (String bad : new String[] {"900-300", "fast", "1-2-3", "-5", "100-", "999999"}) {
+            assertThatIllegalArgumentException().as(bad)
+                    .isThrownBy(() -> parse("--server", "x", "--think", bad)).withMessageContaining("--think");
+        }
     }
 
     @Test

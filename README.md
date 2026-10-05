@@ -9,13 +9,15 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 6 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
+**Status:** Phase 7 of 8. The app is feature-complete; its hands-on checklist is `docs/QA.md`. The rules engine plays complete hands of Hold'em in memory (blinds,
 betting, side pots, showdown) and is tested on 100,000 random hands. Every message the app and
 server will exchange is defined and tested as JSON. The server has a database, an API and live
 rooms over WebSocket: players join by code, take seats, and play real hands with turn timers,
 sitting out, rebuys and reconnecting. Every hand is saved to the database and to readable text
-files, and the API serves hand history, replays and a leaderboard. Bots can play it today; the
-desktop app for people is still an empty window.
+files, and the API serves hand history, replays and a leaderboard. The desktop app does the
+whole game: connect, register or log in, create or join a room, play hands at the table against
+people or bots, chat, sit out, rebuy, reconnect by itself after a dropped connection, and look
+back over your hand history and the leaderboard.
 
 ## Modules
 
@@ -95,6 +97,23 @@ Start the desktop app:
 ./mvnw -pl poker-client-fx -am compile javafx:run
 ```
 
+Type the server's address (`127.0.0.1` on the host machine itself), create an account, then create
+a room. To fill the room, run the bots with its code:
+
+```bash
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3 --hands 0"
+```
+
+The app keeps its settings and a remembered login in `~/.holdem`.
+
+To run a second server for testing while one is already running, give it its own ports:
+
+```bash
+./mvnw -pl poker-server -am -DskipTests package cargo:run -Dholdem.port=18080 -Dholdem.shutdown.port=18205 -Dholdem.ajp.port=18009
+```
+
+Then use `127.0.0.1:18080` as the server address.
+
 ## Watching bots play
 
 With the server running, this makes six bots create a room and play 100 hands against each other,
@@ -113,10 +132,13 @@ with no waits between hands instead:
 ```
 
 ```bash
-./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500"
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"
 ```
 
 Add `--room ABC234` to make the bots join a room you are hosting instead of creating their own.
+Bots pause for a second or two before each action, a little longer before a bet or raise, so you
+can follow what they do; `--think 300-900` changes the range (in milliseconds) and `--think 0`
+makes them act at once.
 The bots use accounts named `bot_1` to `bot_9`, which they register the first time.
 
 ## Where hands are kept

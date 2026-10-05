@@ -1,0 +1,475 @@
+/* The look of the desktop app: a dark card room, ivory text, and one gold accent for the main action. */
+
+.root {
+    -hd-felt: #0e1f19;
+    -hd-panel: #17322a;
+    -hd-panel-edge: #24493d;
+    -hd-ivory: #f3ecd9;
+    -hd-muted: #9fb3a8;
+    -hd-gold: #d9b44a;
+    -hd-gold-dark: #b8943a;
+    -hd-danger: #e58a78;
+    -hd-good: #8fd19e;
+
+    -fx-background-color: -hd-felt;
+    /* The system font: San Francisco on macOS, Segoe UI on Windows. */
+    -fx-font-family: "System";
+    -fx-font-size: 14px;
+    -fx-accent: -hd-gold;
+    -fx-focus-color: -hd-gold;
+    -fx-faint-focus-color: transparent;
+}
+
+.label {
+    -fx-text-fill: -hd-ivory;
+}
+
+.screen {
+    -fx-background-color: -hd-felt;
+    -fx-padding: 32;
+}
+
+.panel {
+    -fx-background-color: -hd-panel;
+    -fx-background-radius: 14;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 14;
+    -fx-border-width: 1;
+    -fx-padding: 28;
+}
+
+.title {
+    -fx-font-size: 30px;
+    -fx-font-weight: bold;
+}
+
+.heading {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.muted {
+    -fx-text-fill: -hd-muted;
+}
+
+.field-label {
+    -fx-text-fill: -hd-muted;
+    -fx-font-size: 12px;
+}
+
+.error {
+    -fx-text-fill: -hd-danger;
+}
+
+.good {
+    -fx-text-fill: -hd-good;
+}
+
+.text-field, .password-field, .spinner .text-field {
+    -fx-background-color: #0b1814;
+    -fx-text-fill: -hd-ivory;
+    -fx-prompt-text-fill: #5f7a6e;
+    -fx-background-radius: 8;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 8;
+    -fx-padding: 9 12;
+    -fx-highlight-fill: -hd-gold;
+    -fx-highlight-text-fill: #1a1a1a;
+}
+
+.text-field:focused, .password-field:focused {
+    -fx-border-color: -hd-gold;
+}
+
+.spinner {
+    -fx-background-color: transparent;
+}
+
+.spinner .increment-arrow-button, .spinner .decrement-arrow-button {
+    -fx-background-color: -hd-panel-edge;
+}
+
+.spinner .increment-arrow, .spinner .decrement-arrow {
+    -fx-background-color: -hd-ivory;
+}
+
+.button {
+    -fx-background-color: -hd-panel-edge;
+    -fx-text-fill: -hd-ivory;
+    -fx-background-radius: 8;
+    -fx-padding: 9 18;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #2f5c4d;
+}
+
+.button:pressed {
+    -fx-background-color: #1d3d33;
+}
+
+.button:disabled {
+    -fx-opacity: 0.45;
+}
+
+.button.primary {
+    -fx-background-color: -hd-gold;
+    -fx-text-fill: #1c1608;
+    -fx-font-weight: bold;
+}
+
+.button.primary:hover {
+    -fx-background-color: #e6c463;
+}
+
+.button.primary:pressed {
+    -fx-background-color: -hd-gold-dark;
+}
+
+.button.danger {
+    -fx-background-color: transparent;
+    -fx-border-color: -hd-danger;
+    -fx-border-radius: 8;
+    -fx-text-fill: -hd-danger;
+}
+
+.button.danger:hover {
+    -fx-background-color: rgba(229, 138, 120, 0.15);
+}
+
+.button.link {
+    -fx-background-color: transparent;
+    -fx-text-fill: -hd-gold;
+    -fx-padding: 4 0;
+    -fx-underline: true;
+}
+
+.button.small {
+    -fx-padding: 5 12;
+    -fx-font-size: 12px;
+}
+
+.check-box {
+    -fx-text-fill: -hd-ivory;
+}
+
+.check-box .box {
+    -fx-background-color: #0b1814;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: -hd-gold;
+}
+
+/* ---- the waiting room */
+
+.room-code {
+    -fx-font-family: "Menlo", "Consolas", "Courier New", monospace;
+    -fx-font-size: 54px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -hd-gold;
+}
+
+.seat-tile {
+    -fx-background-color: #10261f;
+    -fx-background-radius: 12;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 12;
+    -fx-padding: 14;
+    -fx-min-width: 168;
+    -fx-pref-width: 168;
+    -fx-min-height: 112;
+}
+
+.seat-tile.taken {
+    -fx-background-color: #1c3b31;
+}
+
+.seat-tile.mine {
+    -fx-border-color: -hd-gold;
+    -fx-border-width: 2;
+}
+
+.seat-number {
+    -fx-text-fill: -hd-muted;
+    -fx-font-size: 12px;
+}
+
+.seat-name {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+}
+
+.badge {
+    -fx-background-color: -hd-gold;
+    -fx-background-radius: 6;
+    -fx-text-fill: #1c1608;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 2 7;
+}
+
+.badge.quiet {
+    -fx-background-color: -hd-panel-edge;
+    -fx-text-fill: -hd-ivory;
+}
+
+/* ---- lists and dialogs */
+
+.list-view {
+    -fx-background-color: #0b1814;
+    -fx-background-radius: 8;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 8;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -hd-ivory;
+    -fx-padding: 3 10;
+}
+
+.dialog-pane {
+    -fx-background-color: -hd-panel;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: -hd-panel;
+}
+
+.dialog-pane .header-panel .label {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -hd-ivory;
+}
+
+.dialog-pane .content {
+    -fx-padding: 8 24 16 24;
+}
+
+.dialog-pane .button-bar .container {
+    -fx-background-color: -hd-panel;
+}
+
+/* ---- scroll bars, in keeping with the dark theme */
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .track, .scroll-bar .track-background {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: -hd-panel-edge;
+    -fx-background-radius: 6;
+    -fx-background-insets: 2;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #3a6b5a;
+}
+
+.scroll-bar .increment-button, .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 4 0 4;
+}
+
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
+}
+
+.list-view .corner, .scroll-pane .corner {
+    -fx-background-color: transparent;
+}
+
+/* ---- the table */
+
+.table-screen {
+    -fx-background-color: -hd-felt;
+}
+
+.top-bar {
+    -fx-padding: 10 16;
+    -fx-background-color: #0b1814;
+    -fx-border-color: transparent transparent -hd-panel-edge transparent;
+}
+
+.felt {
+    -fx-fill: radial-gradient(center 50% 45%, radius 70%, #1f6b4d 0%, #17533c 55%, #0f3a2a 100%);
+    -fx-stroke: #2c1d12;
+    -fx-stroke-width: 14;
+}
+
+.felt-line {
+    -fx-fill: transparent;
+    -fx-stroke: rgba(243, 236, 217, 0.13);
+    -fx-stroke-width: 1.5;
+}
+
+.seat-plate {
+    -fx-background-color: #0b1814;
+    -fx-background-radius: 12;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 12;
+    -fx-border-width: 1.5;
+    -fx-padding: 6 10;
+    -fx-alignment: center;
+    -fx-min-width: 140;
+    -fx-max-width: 140;
+}
+
+.seat-plate.turn {
+    -fx-border-color: -hd-gold;
+    -fx-border-width: 2.5;
+}
+
+.seat-plate.winner {
+    -fx-border-color: -hd-good;
+    -fx-border-width: 2.5;
+    -fx-background-color: #123324;
+}
+
+.seat-plate.empty {
+    -fx-background-color: rgba(11, 24, 20, 0.55);
+    -fx-border-color: rgba(36, 73, 61, 0.7);
+}
+
+.seat-plate.away {
+    -fx-opacity: 0.6;
+}
+
+.plate-name {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+
+.plate-stack {
+    -fx-text-fill: -hd-gold;
+    -fx-font-size: 13px;
+}
+
+.plate-note {
+    -fx-text-fill: -hd-muted;
+    -fx-font-size: 11px;
+}
+
+.action-bubble {
+    -fx-background-color: rgba(11, 24, 20, 0.85);
+    -fx-background-radius: 9;
+    -fx-text-fill: -hd-ivory;
+    -fx-font-size: 11px;
+    -fx-padding: 2 8;
+}
+
+.win-bubble {
+    -fx-background-color: -hd-good;
+    -fx-background-radius: 9;
+    -fx-text-fill: #0b2415;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 2 8;
+}
+
+.dealer-button {
+    -fx-background-color: -hd-ivory;
+    -fx-background-radius: 20;
+    -fx-text-fill: #1c1608;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-min-width: 22;
+    -fx-min-height: 22;
+    -fx-max-width: 22;
+    -fx-max-height: 22;
+    -fx-alignment: center;
+}
+
+.bet-chip {
+    -fx-background-color: rgba(11, 24, 20, 0.8);
+    -fx-background-radius: 11;
+    -fx-text-fill: -hd-ivory;
+    -fx-font-size: 12px;
+    -fx-padding: 2 9 2 4;
+}
+
+.pot-label {
+    -fx-background-color: rgba(11, 24, 20, 0.7);
+    -fx-background-radius: 12;
+    -fx-text-fill: -hd-gold;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 4 14;
+}
+
+.side-pot-label {
+    -fx-text-fill: -hd-ivory;
+    -fx-font-size: 12px;
+}
+
+.action-panel {
+    -fx-background-color: #0b1814;
+    -fx-border-color: -hd-panel-edge transparent transparent transparent;
+    -fx-padding: 12 16;
+    -fx-min-height: 92;
+    -fx-alignment: center-left;
+}
+
+.action-button {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 20;
+    -fx-min-width: 120;
+}
+
+.button.fold {
+    -fx-background-color: #5a2b24;
+}
+
+.button.fold:hover {
+    -fx-background-color: #74372e;
+}
+
+.key-hint {
+    -fx-text-fill: -hd-muted;
+    -fx-font-size: 10px;
+}
+
+.slider .track {
+    -fx-background-color: -hd-panel-edge;
+    -fx-background-radius: 4;
+    -fx-pref-height: 6;
+}
+
+.slider .thumb {
+    -fx-background-color: -hd-gold;
+    -fx-background-radius: 10;
+    -fx-pref-width: 18;
+    -fx-pref-height: 18;
+}
+
+.side-panel {
+    -fx-background-color: #0b1814;
+    -fx-border-color: transparent transparent transparent -hd-panel-edge;
+    -fx-padding: 12;
+    -fx-min-width: 250;
+    -fx-pref-width: 250;
+    -fx-max-width: 250;
+}
+
+.side-panel .list-view {
+    -fx-border-color: transparent;
+    -fx-background-color: transparent;
+}
+
+.side-panel .list-view .list-cell {
+    -fx-font-size: 12px;
+    -fx-padding: 2 4;
+    -fx-text-fill: #cfd9d2;
+}

@@ -184,16 +184,28 @@ tried from a second PC.*
 
 **Concepts:** JavaFX, multithreading (`Platform.runLater`, `Task`), file handling (client.properties, session.dat, export), collections (`ObservableList`), polymorphism (message dispatch).
 
-- [ ] Connect screen (IP + Test connection); login/register; remember me.
-- [ ] Home: create room dialog (all settings), join room dialog (code), history, leaderboard.
-- [ ] Waiting room with big room code + copy button, seat picker, host controls.
-- [ ] Table screen and action panel per §10; timer ring; animations; showdown + winners.
-- [ ] Chat, hand log, sit out/in, rebuy, leave, host pause/resume/end.
-- [ ] Reconnecting overlay + snapshot restore; export hand history to file.
-- [ ] Unit tests for `RoomState` updates; `docs/QA.md` manual checklist.
+Built in three steps, with a check between them.
+
+*Step 7a: getting in and the waiting room (done)*
+- [x] Connect screen (IP + Test connection); login/register; remember me.
+- [x] Home: create room dialog (all settings), join room dialog (code).
+- [x] Waiting room with big room code + copy button, seat picker, host controls.
+- [x] `ApiClient`, `GameSocket`, `RoomState` with unit tests for its updates.
+
+*Step 7b: playing (done)*
+- [x] Table screen and action panel per §10; timer ring; animations; showdown + winners.
+- [x] "Sit in" and "Rebuy" in the action panel, so a player who timed out or went broke can get back in.
+
+*Step 7c: everything round the table (done)*
+- [x] Chat, sit out, host pause/resume/end.
+- [x] Reconnecting overlay + snapshot restore.
+- [x] Home: history, leaderboard; export hand history to file.
+- [x] `docs/QA.md` manual checklist.
 
 **Done when:** 3 instances (on one PC or 3 laptops) create/join one room by code and play 30
 hands including an all-in with side pot, chat, sit out, and a reconnect after closing the app.
+
+*Not done yet: this is section 11 of `docs/QA.md`, and it needs people at keyboards.*
 
 **You'll have:** the actual game: open the app, log in, create or join a room with a code and play poker with friends on the same Wi-Fi.
 

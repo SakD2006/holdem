@@ -261,7 +261,8 @@ that is too short, a room with 12 seats).
 
 **JSON API (servlets) for the desktop app:** `GET /api/ping` (server name + version, used by
 "Test connection") · `POST /api/auth/register` · `POST /api/auth/login` → `{token, user}` ·
-`POST /api/auth/logout` · `POST /api/rooms` (create → `{code}`) · `GET /api/rooms/{code}`
+`POST /api/auth/logout` · `GET /api/me` (who the token belongs to; the app uses it to check a
+remembered login) · `POST /api/rooms` (create → `{code}`) · `GET /api/rooms/{code}`
 (preview before joining) · `GET /api/hands?mine=true&page=` · `GET /api/hands/{id}` ·
 `GET /api/leaderboard`.
 
@@ -403,9 +404,23 @@ Screens:
    (min, ½ pot, pot, all-in); only legal options enabled; keyboard shortcuts F / C / R.
 7. Side panel: chat + hand log. Sit out / sit in, rebuy, leave.
 
+The server address may be typed as `192.168.1.20`, `192.168.1.20:9090`, or the whole address from
+the server's log. A remembered login is checked with `GET /api/me` at startup: if it is still good
+the app opens on Home, otherwise on the login screen. Closing the window drops the connection but
+keeps the seat. Players see seats numbered from 1; the server numbers them from 0.
+
+The turn timer counts from the moment `ACTION_REQUIRED` arrives, on the player's own clock, so it
+is right even when the server's clock is set differently; only after a reconnect does it use the
+server's deadline, capped at one full turn. The quick sizes are: min, half pot, pot and all-in,
+where a pot-sized raise is the call plus what the pot would then hold. A second click on an action
+button sends nothing; a refused action re-opens the buttons with the reason shown.
+
 Cards and chips drawn with JavaFX shapes (no image assets). Network events → `Platform.runLater`;
 HTTP calls off the UI thread (`Task`/`CompletableFuture`). On disconnect: "Reconnecting…"
-overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`.
+overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`. The app does not retry when
+another login replaced it (close 4000) or its token expired (4401), and if the room is gone when
+it gets back (the server was restarted) it says so and returns to Home. The export file has one
+line per hand and a total; the history screen shows a chosen hand step by step.
 
 ---
 
@@ -431,7 +446,10 @@ never send other players' cards or deck order; chat length-limited and escaped i
   with no code creates its own room and starts it. Each bot reports another player's hole
   cards, a skipped sequence number, a hand whose wins and losses do not total zero, a stack that
   changed between hands, and any refusal it did not provoke. Target: 6 bots, 500 hands, no
-  problems. For speed the server is started with `poker-bot-client/soak-server.properties`.
+  problems. For speed the server is started with `poker-bot-client/soak-server.properties` and the
+  bots with `--think 0`. Otherwise a bot waits a random 0.8 to 2.5 seconds before acting (`--think
+  min-max`), half as long again before a bet or raise and never more than half the turn time, so
+  that people playing with bots can follow the game.
 - **Manual:** `docs/QA.md` checklist for a 3-laptop LAN demo.
 
 ---

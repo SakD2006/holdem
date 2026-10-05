@@ -63,7 +63,7 @@ SLF4J + Logback.
 ./mvnw -pl poker-client-fx -am compile javafx:run               # desktop app
 ./mvnw -pl poker-client-fx -am -DskipTests package              # builds poker-client-fx/target/holdem-client
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
-./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500"   # soak: bots make their own room
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"   # soak: bots make their own room
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
@@ -85,6 +85,15 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Finished hands go from a room to `HandRecordWriter` (thread `hand-writer`), which appends the text
   history under `data/hand-history/` and saves to the database. After a soak run, check the
   database agrees: `SELECT count(*) FROM hands` for the room should equal the hands the bots report.
+- The desktop app cannot be clicked through from a terminal. To see its screens, run `ViewGallery`
+  (client test sources), which renders each one to a PNG with sample data. To check its network
+  code against a real server, run `ClientSmoke` (same place) and join its room with the bots.
+  Both need the client's test classpath (`dependency:build-classpath` with `-Dmdep.includeScope=test`).
+- **Before starting a server for a test, check whether one is already running** (`lsof -nP -iTCP:8080`).
+  The user may be running their own. Start test servers on other ports
+  (`-Dholdem.port=18080 -Dholdem.shutdown.port=18205 -Dholdem.ajp.port=18009`), stop them by their own
+  process id, and do not run `clean` while a server is up: it deletes the folder Tomcat runs from.
+- `ReconnectSmoke` (client test sources) rehearses a dropped connection with the real `RoomSession`.
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
 

@@ -19,6 +19,13 @@
     <cargo.maven.skip>false</cargo.maven.skip>
     <!-- The settings file the server reads. Override with -Dholdem.config=<file>. -->
     <holdem.config>${maven.multiModuleProjectDirectory}/server.properties</holdem.config>
+    <!-- Tomcat's ports. To run a second server beside one already running (for a test, say), give
+         all three a different value: -Dholdem.port=18080 -Dholdem.shutdown.port=18205
+         -Dholdem.ajp.port=18009. Each port gets its own Tomcat folder under target/, so stopping
+         one server can never stop another. -->
+    <holdem.port>8080</holdem.port>
+    <holdem.shutdown.port>8205</holdem.shutdown.port>
+    <holdem.ajp.port>8009</holdem.ajp.port>
   </properties>
 
   <dependencies>
@@ -101,10 +108,13 @@
             </artifactInstaller>
           </container>
           <configuration>
+            <home>${project.build.directory}/cargo/configurations/tomcat10x-${holdem.port}</home>
             <properties>
               <!-- 0.0.0.0 so other PCs on the LAN can connect. -->
               <cargo.hostname>0.0.0.0</cargo.hostname>
-              <cargo.servlet.port>8080</cargo.servlet.port>
+              <cargo.servlet.port>${holdem.port}</cargo.servlet.port>
+              <cargo.rmi.port>${holdem.shutdown.port}</cargo.rmi.port>
+              <cargo.tomcat.ajp.port>${holdem.ajp.port}</cargo.tomcat.ajp.port>
               <!-- Tomcat runs from a folder under target/, so tell the server where its settings and its
                    data folder (logs, hand histories) are. -->
               <cargo.jvmargs>-Dholdem.config=${holdem.config} -Dholdem.data=${maven.multiModuleProjectDirectory}/data</cargo.jvmargs>
