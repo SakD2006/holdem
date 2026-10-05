@@ -110,6 +110,18 @@ public final class GameSocket implements WebSocket.Listener {
         }
     }
 
+    /**
+     * Cuts the connection without a goodbye, as a pulled cable would, and reports it lost. Used to
+     * rehearse reconnecting.
+     */
+    public void drop() {
+        WebSocket current = socket;
+        if (current != null) {
+            current.abort();
+        }
+        ended(1006);
+    }
+
     // ---- from the network thread
 
     @Override

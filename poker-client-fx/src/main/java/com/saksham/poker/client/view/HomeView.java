@@ -24,6 +24,12 @@ public final class HomeView extends StackPane {
         join = Ui.button("Join room", this::joinRoom);
         create.setMaxWidth(Double.MAX_VALUE);
         join.setMaxWidth(Double.MAX_VALUE);
+        Button history = Ui.button("My hand history", router::showHistory);
+        Button leaderboard = Ui.button("Leaderboard", router::showLeaderboard);
+        history.setMaxWidth(Double.MAX_VALUE);
+        leaderboard.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(history, javafx.scene.layout.Priority.ALWAYS);
+        HBox.setHgrow(leaderboard, javafx.scene.layout.Priority.ALWAYS);
         HBox footer = new HBox(Ui.button("Log out", this::logOut, "link"));
         footer.setAlignment(Pos.CENTER_RIGHT);
 
@@ -36,6 +42,7 @@ public final class HomeView extends StackPane {
                 Ui.label("Start a new table. You get a code to share and become the host.", "muted"),
                 join,
                 Ui.label("Enter the code a host has given you.", "muted"),
+                new HBox(10, history, leaderboard),
                 footer);
         panel.getStyleClass().add("panel");
         panel.setMaxWidth(460);

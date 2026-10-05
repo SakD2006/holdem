@@ -83,7 +83,6 @@ public final class SeatNode extends VBox {
         boolean occupied = seat.occupiedProperty().get();
         boolean inHand = seat.inHandProperty().get();
         boolean folded = seat.foldedProperty().get();
-        boolean yours = occupied && seat.userIdProperty().get() == state.yourUserIdProperty().get();
 
         // ---- cards: face up if known, backs if still in the hand, nothing otherwise
         cards.getChildren().clear();
@@ -110,8 +109,8 @@ public final class SeatNode extends VBox {
                         Ui.button("Sit here", () -> onSit.accept(seat.seat()), "small"));
             }
         } else {
-            name.setText(occupied ? (yours ? seat.usernameProperty().get() + " (you)" : seat.usernameProperty().get())
-                    : "Left");
+            // No "(you)" label: your seat is always the one at the bottom, and the room is tight.
+            name.setText(occupied ? seat.usernameProperty().get() : "Left");
             if (!occupied) {
                 detail.getStyleClass().setAll("label", "plate-note");
                 detail.setText("");

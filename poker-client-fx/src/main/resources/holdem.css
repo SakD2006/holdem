@@ -320,10 +320,10 @@
     -fx-border-color: -hd-panel-edge;
     -fx-border-radius: 12;
     -fx-border-width: 1.5;
-    -fx-padding: 6 12;
+    -fx-padding: 6 10;
     -fx-alignment: center;
-    -fx-min-width: 124;
-    -fx-max-width: 124;
+    -fx-min-width: 140;
+    -fx-max-width: 140;
 }
 
 .seat-plate.turn {

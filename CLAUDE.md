@@ -89,6 +89,11 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   (client test sources), which renders each one to a PNG with sample data. To check its network
   code against a real server, run `ClientSmoke` (same place) and join its room with the bots.
   Both need the client's test classpath (`dependency:build-classpath` with `-Dmdep.includeScope=test`).
+- **Before starting a server for a test, check whether one is already running** (`lsof -nP -iTCP:8080`).
+  The user may be running their own. Start test servers on other ports
+  (`-Dholdem.port=18080 -Dholdem.shutdown.port=18205 -Dholdem.ajp.port=18009`), stop them by their own
+  process id, and do not run `clean` while a server is up: it deletes the folder Tomcat runs from.
+- `ReconnectSmoke` (client test sources) rehearses a dropped connection with the real `RoomSession`.
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
 

@@ -196,14 +196,16 @@ Built in three steps, with a check between them.
 - [x] Table screen and action panel per §10; timer ring; animations; showdown + winners.
 - [x] "Sit in" and "Rebuy" in the action panel, so a player who timed out or went broke can get back in.
 
-*Step 7c: everything round the table*
-- [ ] Chat, sit out, host pause/resume/end. (The hand log, sit in, rebuy and leave are already in.)
-- [ ] Reconnecting overlay + snapshot restore.
-- [ ] Home: history, leaderboard; export hand history to file.
-- [ ] `docs/QA.md` manual checklist.
+*Step 7c: everything round the table (done)*
+- [x] Chat, sit out, host pause/resume/end.
+- [x] Reconnecting overlay + snapshot restore.
+- [x] Home: history, leaderboard; export hand history to file.
+- [x] `docs/QA.md` manual checklist.
 
 **Done when:** 3 instances (on one PC or 3 laptops) create/join one room by code and play 30
 hands including an all-in with side pot, chat, sit out, and a reconnect after closing the app.
+
+*Not done yet: this is section 11 of `docs/QA.md`, and it needs people at keyboards.*
 
 **You'll have:** the actual game: open the app, log in, create or join a room with a code and play poker with friends on the same Wi-Fi.
 

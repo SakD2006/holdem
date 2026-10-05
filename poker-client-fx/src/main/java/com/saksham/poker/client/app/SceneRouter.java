@@ -4,8 +4,11 @@ import com.saksham.poker.client.net.ApiClient;
 import com.saksham.poker.client.net.ServerAddress;
 import com.saksham.poker.client.view.ConnectView;
 import com.saksham.poker.client.view.TableView;
+import com.saksham.poker.client.view.HistoryView;
 import com.saksham.poker.client.view.HomeView;
+import com.saksham.poker.client.view.LeaderboardView;
 import com.saksham.poker.client.view.LoginView;
+import com.saksham.poker.client.view.ReconnectingOverlay;
 import com.saksham.poker.client.view.WaitingRoomView;
 import java.util.Optional;
 import javafx.application.Platform;
@@ -90,6 +93,14 @@ public final class SceneRouter {
         show(new HomeView(this, notice));
     }
 
+    public void showHistory() {
+        show(new HistoryView(this));
+    }
+
+    public void showLeaderboard() {
+        show(new LeaderboardView(this));
+    }
+
     /** Joins a room and shows it once the server has let the player in. */
     public void enterRoom(String code) {
         show(new StackPane(new Label("Joining room " + code + "...")));
@@ -105,7 +116,8 @@ public final class SceneRouter {
         RoomSession current = room;
         Runnable choose = () -> {
             if (room == current) {
-                show(current.state().waiting() ? new WaitingRoomView(current) : new TableView(current));
+                Node screen = current.state().waiting() ? new WaitingRoomView(current) : new TableView(current);
+                show(new StackPane(screen, new ReconnectingOverlay(current)));
             }
         };
         current.state().stageProperty().addListener((property, was, now) -> {

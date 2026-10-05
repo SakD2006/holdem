@@ -417,7 +417,10 @@ button sends nothing; a refused action re-opens the buttons with the reason show
 
 Cards and chips drawn with JavaFX shapes (no image assets). Network events → `Platform.runLater`;
 HTTP calls off the UI thread (`Task`/`CompletableFuture`). On disconnect: "Reconnecting…"
-overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`.
+overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`. The app does not retry when
+another login replaced it (close 4000) or its token expired (4401), and if the room is gone when
+it gets back (the server was restarted) it says so and returns to Home. The export file has one
+line per hand and a total; the history screen shows a chosen hand step by step.
 
 ---
 

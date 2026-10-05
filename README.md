@@ -9,15 +9,15 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 7 of 8, in progress. The rules engine plays complete hands of Hold'em in memory (blinds,
+**Status:** Phase 7 of 8. The app is feature-complete; its hands-on checklist is `docs/QA.md`. The rules engine plays complete hands of Hold'em in memory (blinds,
 betting, side pots, showdown) and is tested on 100,000 random hands. Every message the app and
 server will exchange is defined and tested as JSON. The server has a database, an API and live
 rooms over WebSocket: players join by code, take seats, and play real hands with turn timers,
 sitting out, rebuys and reconnecting. Every hand is saved to the database and to readable text
-files, and the API serves hand history, replays and a leaderboard. The desktop app is playable:
-connect, register or log in, create or join a room, and play hands at the table against other
-people or bots. Chat, the host's pause menu, reconnecting on its own and the history screens are
-still to come.
+files, and the API serves hand history, replays and a leaderboard. The desktop app does the
+whole game: connect, register or log in, create or join a room, play hands at the table against
+people or bots, chat, sit out, rebuy, reconnect by itself after a dropped connection, and look
+back over your hand history and the leaderboard.
 
 ## Modules
 
@@ -105,6 +105,14 @@ a room. To fill the room, run the bots with its code:
 ```
 
 The app keeps its settings and a remembered login in `~/.holdem`.
+
+To run a second server for testing while one is already running, give it its own ports:
+
+```bash
+./mvnw -pl poker-server -am -DskipTests package cargo:run -Dholdem.port=18080 -Dholdem.shutdown.port=18205 -Dholdem.ajp.port=18009
+```
+
+Then use `127.0.0.1:18080` as the server address.
 
 ## Watching bots play
 

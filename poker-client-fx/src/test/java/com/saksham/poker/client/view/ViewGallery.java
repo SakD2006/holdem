@@ -72,6 +72,9 @@ public final class ViewGallery {
             }
         });
         done.await();
+        if (args.length > 1 && failure[0] == null) {
+            liveScreens(out, home, args[1], failure);
+        }
         Platform.exit();
         if (failure[0] != null) {
             failure[0].printStackTrace();
@@ -79,6 +82,40 @@ public final class ViewGallery {
         }
         System.out.println("Pictures written to " + out.toAbsolutePath());
         System.exit(0);
+    }
+
+    /**
+     * The screens that fetch their contents: drawn against a real server, logged in as one of the
+     * bots, and given a moment to load before the picture is taken.
+     */
+    private static void liveScreens(Path out, Path home, String server, Throwable[] failure) throws Exception {
+        ClientContext context = new ClientContext(AppConfig.load(home), new SessionStore(home));
+        CountDownLatch built = new CountDownLatch(1);
+        Parent[] screens = new Parent[2];
+        var api = new com.saksham.poker.client.net.ApiClient(ServerAddress.parse(server));
+        AuthResponse login = api.login("bot_2", "bot-test-password").join();
+        Platform.runLater(() -> {
+            context.useServer(ServerAddress.parse(server));
+            context.loggedIn(login, false);
+            SceneRouter router = new SceneRouter(new Stage(), context);
+            screens[0] = new HistoryView(router);
+            screens[1] = new LeaderboardView(router);
+            built.countDown();
+        });
+        built.await();
+        Thread.sleep(2_000);
+        CountDownLatch saved = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                save(out, "9-history", screens[0]);
+                save(out, "9-leaderboard", screens[1]);
+            } catch (Throwable e) {
+                failure[0] = e;
+            } finally {
+                saved.countDown();
+            }
+        });
+        saved.await();
     }
 
     private static void draw(Path out, Path home) throws Exception {
@@ -235,6 +272,11 @@ public final class ViewGallery {
         state.apply(new com.saksham.poker.common.protocol.server.GameState(RoomState.PAUSED));
         state.apply(new ErrorMessage(ErrorCode.INVALID_AMOUNT, "A raise must be from 500 to 10000, but was 20."));
         save(out, "7-table-live", liveView);
+        state.apply(new com.saksham.poker.common.protocol.server.ChatPosted(2, "ravi", "nice hand"));
+        state.apply(new com.saksham.poker.common.protocol.server.ChatPosted(1, "asha",
+                "thanks - that river card was exactly what I needed, I was sure you had the flush"));
+        live.reconnectingProperty().set(true);
+        save(out, "8-reconnecting", new StackPane(liveView, new ReconnectingOverlay(live)));
     }
 
     /** Lays a screen out at the app's window size and writes it as a PNG. */
