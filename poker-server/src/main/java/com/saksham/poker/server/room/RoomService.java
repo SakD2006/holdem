@@ -4,6 +4,7 @@ import com.saksham.poker.common.api.RoomPreview;
 import com.saksham.poker.common.exception.InvalidRequestException;
 import com.saksham.poker.common.exception.PersistenceException;
 import com.saksham.poker.common.exception.RoomNotFoundException;
+import com.saksham.poker.common.protocol.dto.RoomState;
 import com.saksham.poker.server.db.RoomDao;
 import com.saksham.poker.server.db.RoomRecord;
 import com.saksham.poker.server.db.User;
@@ -19,15 +20,17 @@ public final class RoomService {
     private final RoomDao rooms;
     private final UserDao users;
     private final RoomCodeGenerator codes;
+    private final RoomManager manager;
 
-    public RoomService(RoomDao rooms, UserDao users, RoomCodeGenerator codes) {
+    public RoomService(RoomDao rooms, UserDao users, RoomCodeGenerator codes, RoomManager manager) {
         this.rooms = rooms;
         this.users = users;
         this.codes = codes;
+        this.manager = manager;
     }
 
     /**
-     * Creates a room hosted by the given user.
+     * Creates a room hosted by the given user and opens it for players to join.
      *
      * @return the new room, with its code
      * @throws InvalidRequestException if a setting is out of range
@@ -38,6 +41,7 @@ public final class RoomService {
             // A code is never reused: the database refuses one that any room, open or closed, has had.
             Optional<RoomRecord> room = rooms.create(codes.next(), host.id(), settings);
             if (room.isPresent()) {
+                manager.open(room.get().code(), host.id(), settings);
                 return room.get();
             }
         }
@@ -59,7 +63,9 @@ public final class RoomService {
         }
         RoomRecord room = found.get();
         String host = users.findById(room.hostUserId()).map(User::username).orElse("");
-        // Seats are filled over the game connection, which arrives in the next phase.
-        return new RoomPreview(room.code(), room.settings().toInfo(), room.state(), host, 0);
+        // The database knows a room's settings; only the live room knows who is sitting in it now.
+        Optional<Room> live = manager.find(room.code());
+        return new RoomPreview(room.code(), room.settings().toInfo(),
+                live.map(Room::state).orElse(RoomState.CLOSED), host, live.map(Room::seatedCount).orElse(0));
     }
 }

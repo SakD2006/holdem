@@ -135,22 +135,22 @@ tried from a second PC.*
 
 **Concepts:** multithreading (actors, scheduler, outbound queues), concurrent collections, abstract class + polymorphism (`RoomCommand`, `SeatController`), exceptions.
 
-- [ ] `RoomManager` (`ConcurrentHashMap<code, RoomActor>`), `RoomActor` loop over
+- [x] `RoomManager` (`ConcurrentHashMap<code, RoomActor>`), `RoomActor` loop over
       `LinkedBlockingQueue<RoomCommand>`, all commands in §4.3.
-- [ ] Waiting room: join by code, choose seat, host start/kick/end, host hand-over.
-- [ ] One room per user (`ALREADY_IN_ROOM`); joining a playing room is allowed, dealt in at the
+- [x] Waiting room: join by code, choose seat, host start/kick/end, host hand-over.
+- [x] One room per user (`ALREADY_IN_ROOM`); joining a playing room is allowed, dealt in at the
       big blind; a busted player stays sat out and watching, and may rebuy if the room allows.
-- [ ] Game loop: start hands with ≥ 2 active players, 3 s between hands, run-out pauses,
+- [x] Game loop: start hands with ≥ 2 active players, 3 s between hands, run-out pauses,
       pause/resume, sit out/in, rebuy, leave mid-hand = fold, room close rules.
-- [ ] `TurnTimer` with `turnId` (timeout = check if legal, else fold); reconnect with 60 s grace
+- [x] `TurnTimer` with `turnId` (timeout = check if legal, else fold); reconnect with 60 s grace
       and `ROOM_SNAPSHOT`.
-- [ ] `SeatController` + `RemoteHumanController`; `EventRouter` with hole-card filtering.
-- [ ] `GameEndpoint`, `AuthHandshakeConfigurator`, `Connection` (sender virtual thread),
+- [x] `SeatController` + `RemoteHumanController`; `EventRouter` with hole-card filtering.
+- [x] `GameEndpoint`, `AuthHandshakeConfigurator`, `Connection` (sender virtual thread),
       `ConnectionRegistry`; chat with rate limit.
-- [ ] Tests: `RoomActor` with fake controllers (start, timeout check and timeout fold,
+- [x] Tests: `RoomActor` with fake controllers (start, timeout check and timeout fold,
       disconnect/reconnect, host leaves, kick, rebuy, bust without rebuy, join mid-game, leave
       mid-hand); 20-thread concurrent command test.
-- [ ] `poker-bot-client` v1: register/login bots, join a room by code, take seats, host-bot starts,
+- [x] `poker-bot-client` v1: register/login bots, join a room by code, take seats, host-bot starts,
       random legal actions; asserts no foreign hole cards.
 
 **Done when:** 6 bots play 500 hands in one room with no errors and correct chip totals.

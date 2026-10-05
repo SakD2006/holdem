@@ -8,11 +8,15 @@ import com.saksham.poker.common.exception.RoomNotFoundException;
 import com.saksham.poker.common.exception.UnauthorizedException;
 import com.saksham.poker.common.exception.UsernameTakenException;
 import com.saksham.poker.common.protocol.dto.RoomState;
+import com.saksham.poker.engine.card.SecureDeckFactory;
 import com.saksham.poker.server.auth.PasswordHasher;
 import com.saksham.poker.server.auth.Session;
 import com.saksham.poker.server.auth.SessionService;
 import com.saksham.poker.server.room.RoomCodeGenerator;
+import com.saksham.poker.server.room.RoomManager;
 import com.saksham.poker.server.room.RoomService;
+import com.saksham.poker.server.room.RoomStore;
+import com.saksham.poker.server.room.RoomTimings;
 import com.saksham.poker.server.room.RoomSettings;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -23,6 +27,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -201,7 +207,10 @@ class DatabaseTest {
     void aPlayerCanRegisterLogInCreateARoomAndPreviewIt() throws Exception {
         SessionService sessions = new SessionService(users, tokens, new PasswordHasher(1_000),
                 Clock.systemUTC(), Duration.ofDays(7));
-        RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator());
+        ScheduledExecutorService timers = Executors.newSingleThreadScheduledExecutor();
+        RoomManager manager = new RoomManager(timers, RoomStore.NONE, RoomTimings.DEFAULT, new SecureDeckFactory(),
+                Clock.systemUTC());
+        RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator(), manager);
 
         sessions.register("Flow_player", "secret1");
         Session session = sessions.login("flow_player", "secret1");
@@ -216,6 +225,7 @@ class DatabaseTest {
         assertThat(preview.settings()).isEqualTo(SETTINGS.toInfo());
         assertThat(preview.state()).isEqualTo(RoomState.WAITING);
         assertThat(preview.hostUsername()).isEqualTo("Flow_player");
+        // The room is live as soon as it is created, so the preview reports its real state.
         assertThat(preview.seatedPlayers()).isZero();
 
         assertThatThrownBy(() -> roomService.preview("ZZZ999")).isInstanceOf(RoomNotFoundException.class);
@@ -223,5 +233,8 @@ class DatabaseTest {
 
         sessions.logout(session.token());
         assertThatThrownBy(() -> sessions.authenticate(session.token())).isInstanceOf(UnauthorizedException.class);
+
+        manager.shutdown();
+        timers.shutdownNow();
     }
 }

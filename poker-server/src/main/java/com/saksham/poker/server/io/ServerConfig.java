@@ -1,6 +1,7 @@
 package com.saksham.poker.server.io;
 
 import com.saksham.poker.common.exception.StorageException;
+import com.saksham.poker.server.room.RoomTimings;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +30,7 @@ public final class ServerConfig {
     private final int httpPort;
     private final int discoveryPort;
     private final Duration tokenLifetime;
+    private final RoomTimings roomTimings;
 
     /** Builds the settings from properties, using the default for anything missing. */
     public ServerConfig(Properties properties) {
@@ -39,6 +41,11 @@ public final class ServerConfig {
         this.httpPort = number(properties, "http.port", 8080, 1, 65535);
         this.discoveryPort = number(properties, "discovery.port", 8888, 1, 65535);
         this.tokenLifetime = Duration.ofDays(number(properties, "token.days", 7, 1, 365));
+        this.roomTimings = new RoomTimings(
+                number(properties, "hand.delay.ms", 3_000, 0, 60_000),
+                number(properties, "runout.pause.ms", 1_000, 0, 10_000),
+                number(properties, "reconnect.grace.seconds", 60, 0, 3_600) * 1_000L,
+                number(properties, "room.idle.minutes", 30, 1, 24 * 60) * 60_000L);
     }
 
     /**
@@ -117,5 +124,10 @@ public final class ServerConfig {
     /** How long a login lasts. */
     public Duration tokenLifetime() {
         return tokenLifetime;
+    }
+
+    /** The waits rooms use between hands, during run-outs and after a disconnect. */
+    public RoomTimings roomTimings() {
+        return roomTimings;
     }
 }

@@ -17,6 +17,8 @@
 
   <properties>
     <cargo.maven.skip>false</cargo.maven.skip>
+    <!-- The settings file the server reads. Override with -Dholdem.config=<file>. -->
+    <holdem.config>${maven.multiModuleProjectDirectory}/server.properties</holdem.config>
   </properties>
 
   <dependencies>
@@ -100,7 +102,7 @@
               <cargo.servlet.port>8080</cargo.servlet.port>
               <!-- Tomcat runs from a folder under target/, so tell the server where its settings and its
                    data folder (logs, hand histories) are. -->
-              <cargo.jvmargs>-Dholdem.config=${maven.multiModuleProjectDirectory}/server.properties -Dholdem.data=${maven.multiModuleProjectDirectory}/data</cargo.jvmargs>
+              <cargo.jvmargs>-Dholdem.config=${holdem.config} -Dholdem.data=${maven.multiModuleProjectDirectory}/data</cargo.jvmargs>
             </properties>
           </configuration>
           <deployables>
