@@ -15,4 +15,33 @@
     <param-name>logbackDisableServletContainerInitializer</param-name>
     <param-value>true</param-value>
   </context-param>
+
+  <!-- The pages are in English, so numbers and dates are written the English way for everyone,
+       whatever language the visitor's browser asks for. -->
+  <context-param>
+    <param-name>jakarta.servlet.jsp.jstl.fmt.locale</param-name>
+    <param-value>en</param-value>
+  </context-param>
+
+  <!-- Nobody logs in on the web pages, so no page starts a session; and a session id must never be
+       written into a link. -->
+  <session-config>
+    <tracking-mode>COOKIE</tracking-mode>
+  </session-config>
+
+  <!-- An address with no page behind it gets the site's own "nothing here" page. -->
+  <error-page>
+    <error-code>404</error-code>
+    <location>/WEB-INF/views/error.jsp</location>
+  </error-page>
+
+  <!-- Every JSP is UTF-8, including the shared header and footer pieces. -->
+  <jsp-config>
+    <jsp-property-group>
+      <url-pattern>*.jsp</url-pattern>
+      <url-pattern>*.jspf</url-pattern>
+      <page-encoding>UTF-8</page-encoding>
+      <trim-directive-whitespaces>true</trim-directive-whitespaces>
+    </jsp-property-group>
+  </jsp-config>
 </web-app>

@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
 
@@ -65,6 +66,11 @@ public class RoomDao extends BaseDao<RoomRecord> {
 
     public Optional<RoomRecord> findByCode(String code) {
         return findOne("SELECT " + COLUMNS + " FROM rooms WHERE code = ?", code);
+    }
+
+    /** The rooms created most recently, newest first, open or closed. */
+    public List<RoomRecord> recent(int limit) {
+        return findAll("SELECT " + COLUMNS + " FROM rooms ORDER BY created_at DESC, id DESC LIMIT ?", limit);
     }
 
     /** Records a change of state; closing a room also records when. */

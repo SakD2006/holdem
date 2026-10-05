@@ -1,0 +1,130 @@
+/* The look of the server's web pages: the same dark green, ivory and gold as the desktop app. */
+:root {
+  --felt: #0f3d2e;
+  --felt-dark: #0a2a20;
+  --panel: #14483a;
+  --line: #24614f;
+  --ivory: #f3ecd9;
+  --muted: #a9bdb3;
+  --gold: #d9b45a;
+  --up: #7ddc9a;
+  --down: #f08a80;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ivory);
+  background: radial-gradient(circle at 50% 0, var(--felt) 0, var(--felt-dark) 70%) fixed var(--felt-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--gold); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.18);
+}
+.brand { font-size: 20px; font-weight: 700; color: var(--ivory); letter-spacing: 0.5px; }
+.brand:hover { text-decoration: none; }
+.pip { color: var(--gold); }
+.top nav a { margin-left: 20px; }
+
+main { width: 100%; max-width: 900px; margin: 0 auto; padding: 28px 24px 40px; flex: 1; }
+
+h1 { font-size: 30px; margin: 0 0 6px; }
+h2 { font-size: 19px; margin: 34px 0 10px; color: var(--gold); font-weight: 600; }
+h3 { font-size: 16px; margin: 0 0 8px; display: flex; align-items: center; gap: 10px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--muted); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.5px; }
+
+.hero { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; }
+.status { font-size: 14px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--up); margin-right: 6px; }
+.addresses { list-style: none; padding: 0; margin: 0 0 12px; }
+.addresses code { font-size: 26px; color: var(--gold); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 16px; }
+.tile {
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px;
+  color: var(--ivory);
+}
+.tile .number { font-size: 30px; font-weight: 700; }
+.tile .caption { color: var(--muted); }
+.tile.link:hover { border-color: var(--gold); text-decoration: none; }
+.tile.link .number { color: var(--gold); }
+
+.lookup { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lookup input {
+  font: inherit; text-transform: uppercase; letter-spacing: 3px;
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--felt-dark); color: var(--ivory);
+}
+.lookup input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.lookup button {
+  font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 0;
+  background: var(--gold); color: #2a2208; cursor: pointer;
+}
+
+/* A wide table scrolls sideways inside its own box on a phone, instead of pushing the page wide. */
+.scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; }
+td { white-space: nowrap; }
+th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+tbody tr:last-child td { border-bottom: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.first td { background: rgba(217, 180, 90, 0.10); }
+
+.up { color: var(--up); font-weight: 600; }
+.down { color: var(--down); font-weight: 600; }
+.level { color: var(--muted); }
+
+.tag {
+  display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); vertical-align: middle; margin-left: 6px;
+}
+.tag.live { border-color: var(--up); color: var(--up); }
+
+.cards { display: inline-flex; gap: 4px; vertical-align: middle; }
+.card {
+  display: inline-flex; align-items: center; justify-content: center; gap: 1px;
+  min-width: 34px; height: 44px; padding: 0 4px;
+  background: #fbf8ef; color: #1c1c1c; border-radius: 5px;
+  font-weight: 700; font-size: 16px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.card.red { color: #c0392b; }
+.card .suit { font-size: 15px; }
+
+.board { display: flex; align-items: center; gap: 14px; margin: 18px 0 4px; }
+.board .caption { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; }
+.board .card { min-width: 44px; height: 60px; font-size: 20px; }
+.board .card .suit { font-size: 19px; }
+
+.crumbs { margin-bottom: 6px; font-size: 14px; }
+.streets { display: grid; gap: 12px; }
+.street { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+.street ol { margin: 0; padding-left: 22px; }
+.street li { padding: 1px 0; }
+.street .card { min-width: 28px; height: 36px; font-size: 14px; }
+
+.bottom { text-align: center; color: var(--muted); font-size: 13px; padding: 16px; border-top: 1px solid var(--line); }
+
+@media (max-width: 600px) {
+  main { padding: 20px 14px 32px; }
+  th, td { padding: 8px 8px; }
+  .addresses code { font-size: 20px; }
+}

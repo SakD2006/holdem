@@ -13,6 +13,7 @@ import com.saksham.poker.server.db.RoomDao;
 import com.saksham.poker.server.db.UserDao;
 import com.saksham.poker.server.io.HandHistoryFileWriter;
 import com.saksham.poker.server.io.ServerConfig;
+import com.saksham.poker.server.lan.DiscoveryResponder;
 import com.saksham.poker.server.lan.NetworkInfo;
 import com.saksham.poker.server.room.AsyncRoomStore;
 import com.saksham.poker.server.room.RoomCodeGenerator;
@@ -23,6 +24,7 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
+import java.net.SocketException;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.util.List;
@@ -51,6 +53,7 @@ public class AppContextListener implements ServletContextListener {
     private HandRecordWriter handWriter;
     private RoomManager roomManager;
     private ConnectionRegistry connections;
+    private DiscoveryResponder discovery;
 
     @Override
     public void contextInitialized(ServletContextEvent event) {
@@ -97,8 +100,20 @@ public class AppContextListener implements ServletContextListener {
         SessionService sessions = new SessionService(users, tokens, new PasswordHasher(), clock,
                 config.tokenLifetime());
         RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator(), roomManager);
-        new AppContext(config, sessions, roomService, roomManager, hands, connections, new MessageCodec())
-                .storeIn(servletContext);
+        new AppContext(config, sessions, roomService, roomManager, hands, rooms, connections,
+                new MessageCodec()).storeIn(servletContext);
+
+        discovery = new DiscoveryResponder(config.discoveryPort(), config.httpPort());
+        try {
+            discovery.start();
+            log.info("\"Find server\" is answered on UDP port {}", config.discoveryPort());
+        } catch (SocketException e) {
+            // The game itself is fine; players just have to type the address.
+            discovery = null;
+            log.warn("\"Find server\" will not work: UDP port {} could not be opened ({}). Another Hold'em "
+                    + "server may be running on this computer. Players can still type the address.",
+                    config.discoveryPort(), e.getMessage());
+        }
 
         List<String> urls = NetworkInfo.serverUrls(config.httpPort(), servletContext.getContextPath());
         if (urls.isEmpty()) {
@@ -114,6 +129,9 @@ public class AppContextListener implements ServletContextListener {
     @Override
     public void contextDestroyed(ServletContextEvent event) {
         AppContext.clear();
+        if (discovery != null) {
+            discovery.close();
+        }
         // Stop taking work first, then let what is already queued for the database finish.
         if (connections != null) {
             connections.closeAll();

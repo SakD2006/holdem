@@ -25,6 +25,9 @@ public final class ServerConfig {
     /** System property naming the folder for logs and hand histories; also set by the start command. */
     public static final String DATA_PROPERTY = "holdem.data";
 
+    /** System property holding the port Tomcat listens on, when the start command chose it. */
+    public static final String PORT_PROPERTY = "holdem.port";
+
     private final String dbUrl;
     private final String dbUser;
     private final String dbPassword;
@@ -40,7 +43,8 @@ public final class ServerConfig {
         this.dbUser = properties.getProperty("db.user", "holdem").trim();
         this.dbPassword = properties.getProperty("db.password", "holdem");
         this.dbPoolSize = number(properties, "db.pool.size", 5, 1, 50);
-        this.httpPort = number(properties, "http.port", 8080, 1, 65535);
+        // The start command knows the port Tomcat was really given, so it wins over the file.
+        this.httpPort = Integer.getInteger(PORT_PROPERTY, number(properties, "http.port", 8080, 1, 65535));
         this.discoveryPort = number(properties, "discovery.port", 8888, 1, 65535);
         this.tokenLifetime = Duration.ofDays(number(properties, "token.days", 7, 1, 365));
         this.roomTimings = new RoomTimings(

@@ -354,6 +354,55 @@ class DatabaseTest {
     // ---- the services on a real database
 
     @Test
+    void aRoomsResultsTotalItsOwnHandsOnly() throws Exception {
+        long[] u = threePlayersIn("RES234", "res");
+        rooms.create("RES235", u[0], SETTINGS).orElseThrow();
+        hands.save(Hands.showdown("RES234", 1, u[0], u[1], u[2]));
+        hands.save(Hands.showdown("RES234", 2, u[0], u[1], u[2]));
+        hands.save(Hands.foldedPreflop("RES234", 3, u[0], u[1]));
+        hands.save(Hands.showdown("RES235", 1, u[0], u[1], u[2])); // another room: must not be counted
+        long roomId = rooms.findByCode("RES234").orElseThrow().id();
+
+        List<RoomStanding> standings = hands.standings(roomId);
+
+        assertThat(standings).containsExactly(new RoomStanding("res_meera", 2, 2, 600),
+                new RoomStanding("res_asha", 3, 1, 100), new RoomStanding("res_ravi", 3, 0, -700));
+        assertThat(standings.stream().mapToLong(RoomStanding::net).sum()).isZero();
+        assertThat(hands.standings(rooms.findByCode("RES235").orElseThrow().id())).hasSize(3);
+    }
+
+    @Test
+    void aRoomsHandsAreListedNewestFirstWithTheirWinners() throws Exception {
+        long[] u = threePlayersIn("LST234", "lst");
+        hands.save(Hands.showdown("LST234", 1, u[0], u[1], u[2]));
+        hands.save(Hands.foldedPreflop("LST234", 2, u[0], u[1]));
+        long roomId = rooms.findByCode("LST234").orElseThrow().id();
+        long before = hands.count();
+
+        List<RoomHand> listed = hands.handsInRoom(roomId, 10);
+
+        assertThat(listed).extracting(RoomHand::handNo).containsExactly(2L, 1L);
+        assertThat(listed).extracting(RoomHand::winners).containsExactly("lst_asha", "lst_meera");
+        assertThat(listed.get(0).board()).isEmpty();
+        assertThat(listed.get(1).board()).isEqualTo(Card.parseAll("2c 5d 9h Js 3s"));
+        assertThat(listed.get(1).totalPot()).isEqualTo(600);
+        assertThat(listed.get(1).endedAt()).isEqualTo(Hands.ENDED);
+        assertThat(hands.handsInRoom(roomId, 1)).extracting(RoomHand::handNo).containsExactly(2L);
+        assertThat(hands.find(listed.get(1).id())).isPresent();
+        assertThat(before).isGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    void theNewestRoomsAreListedFirst() throws Exception {
+        long host = users.create("recent_host", "hash").id();
+        rooms.create("REC234", host, SETTINGS).orElseThrow();
+        rooms.create("REC235", host, SETTINGS).orElseThrow();
+
+        assertThat(rooms.recent(2)).extracting(RoomRecord::code).containsExactly("REC235", "REC234");
+        assertThat(rooms.recent(1)).hasSize(1);
+    }
+
+    @Test
     void aPlayerCanRegisterLogInCreateARoomAndPreviewIt() throws Exception {
         SessionService sessions = new SessionService(users, tokens, new PasswordHasher(1_000),
                 Clock.systemUTC(), Duration.ofDays(7));

@@ -1,0 +1,18 @@
+<%-- The top of every page. Set "pageTitle" before including it. --%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><c:out value="${pageTitle}"/> - Hold'em</title>
+  <link rel="stylesheet" href="<c:url value='/css/site.css'/>">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="<c:url value='/'/>"><span class="pip">&#9824;</span> Hold'em</a>
+  <nav>
+    <a href="<c:url value='/'/>">Home</a>
+    <a href="<c:url value='/leaderboard'/>">Leaderboard</a>
+  </nav>
+</header>
+<main>
