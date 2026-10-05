@@ -6,11 +6,13 @@ import com.saksham.poker.common.exception.PokerException;
 import com.saksham.poker.common.exception.RoomNotFoundException;
 import com.saksham.poker.common.protocol.dto.RoomState;
 import com.saksham.poker.engine.card.DeckFactory;
+import com.saksham.poker.server.db.HandRecord;
 import com.saksham.poker.server.player.SeatController;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,11 +35,21 @@ public final class RoomManager implements RoomListener {
     private final RoomTimings timings;
     private final DeckFactory decks;
     private final Clock clock;
+    private final Consumer<HandRecord> handSink;
 
-    public RoomManager(ScheduledExecutorService timers, RoomStore store, RoomTimings timings, DeckFactory decks,
-            Clock clock) {
+    /**
+     * @param timers the shared timer threads
+     * @param store where room state changes are recorded
+     * @param handSink where finished hands are handed over for saving; must not block
+     * @param timings the waits rooms use
+     * @param decks the decks rooms deal from
+     * @param clock the time
+     */
+    public RoomManager(ScheduledExecutorService timers, RoomStore store, Consumer<HandRecord> handSink,
+            RoomTimings timings, DeckFactory decks, Clock clock) {
         this.timers = timers;
         this.store = store;
+        this.handSink = handSink;
         this.timings = timings;
         this.decks = decks;
         this.clock = clock;
@@ -132,6 +144,11 @@ public final class RoomManager implements RoomListener {
     @Override
     public void stateChanged(String code, RoomState state) {
         store.saveState(code, state);
+    }
+
+    @Override
+    public void handFinished(HandRecord hand) {
+        handSink.accept(hand);
     }
 
     @Override

@@ -8,7 +8,6 @@ import com.saksham.poker.common.protocol.server.ErrorMessage;
 import com.saksham.poker.common.protocol.server.HandEnded;
 import com.saksham.poker.common.protocol.server.HoleCards;
 import com.saksham.poker.common.protocol.server.RoomSnapshot;
-import com.saksham.poker.common.protocol.server.SeatUpdate;
 import com.saksham.poker.engine.rules.LegalActions;
 import com.saksham.poker.server.player.ActionRequest;
 import com.saksham.poker.server.player.SeatController;
@@ -72,10 +71,12 @@ final class AutoPlayer extends SeatController {
                 violations.add("a hand ended with chips not adding up: net " + net);
             }
             handsEnded.incrementAndGet();
-        } else if (event instanceof SeatUpdate update && update.player().userId() == userId
-                && update.player().stack() == 0 && update.player().sittingOut()) {
-            rebuys.incrementAndGet();
-            submit(new RoomCommands.Rebuy(userId));
+            Long mine = ended.stacks().get(seat);
+            if (mine != null && mine == 0) {
+                // Broke: buy back in. The room settles the hand before it reads this request.
+                rebuys.incrementAndGet();
+                submit(new RoomCommands.Rebuy(userId));
+            }
         } else if (event instanceof ErrorMessage error) {
             errors.add(error.code());
         } else if (event instanceof RoomSnapshot snapshot) {

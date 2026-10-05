@@ -259,9 +259,6 @@ final class Bot implements WebSocket.Listener {
             // in a seat update is the live one, which HAND_ENDED will settle.
             stackBetweenHands = me.stack();
         }
-        if (me.seated() && me.stack() == 0 && me.sittingOut() && rebuyAllowed) {
-            send(new Rebuy());
-        }
     }
 
     private void onHandStarted(HandStarted started) {
@@ -287,6 +284,10 @@ final class Bot implements WebSocket.Listener {
         Long mine = ended.stacks().get(seat);
         if (inHand && mine != null) {
             stackBetweenHands = mine;
+            if (mine == 0 && rebuyAllowed && !stopping) {
+                // Broke: buy back in. The room settles the hand before it reads this request.
+                send(new Rebuy());
+            }
         }
         inHand = false;
         handsEnded.incrementAndGet();

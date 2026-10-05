@@ -2,6 +2,7 @@ package com.saksham.poker.server.bootstrap;
 
 import com.saksham.poker.common.protocol.MessageCodec;
 import com.saksham.poker.server.auth.SessionService;
+import com.saksham.poker.server.db.HandDao;
 import com.saksham.poker.server.io.ServerConfig;
 import com.saksham.poker.server.room.RoomManager;
 import com.saksham.poker.server.room.RoomService;
@@ -16,11 +17,12 @@ import jakarta.servlet.ServletContext;
  * @param sessions registering, logging in and checking tokens
  * @param rooms creating rooms and looking them up
  * @param roomManager the open rooms, where game connections send their commands
+ * @param hands finished hands, for history, replays and the leaderboard
  * @param connections the open game connection of each user
  * @param codec reads and writes game messages
  */
 public record AppContext(ServerConfig config, SessionService sessions, RoomService rooms,
-        RoomManager roomManager, ConnectionRegistry connections, MessageCodec codec) {
+        RoomManager roomManager, HandDao hands, ConnectionRegistry connections, MessageCodec codec) {
 
     public static final String SERVER_NAME = "Hold'em";
     public static final String SERVER_VERSION = "0.1.0";

@@ -82,6 +82,9 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   one, start it, and close it when done. Exit code 0 means no problems.
 - Room tests drive a `Room` directly through `RoomHarness` (no threads, timers fire on demand);
   `RoomManagerTest` runs rooms on their real threads.
+- Finished hands go from a room to `HandRecordWriter` (thread `hand-writer`), which appends the text
+  history under `data/hand-history/` and saves to the database. After a soak run, check the
+  database agrees: `SELECT count(*) FROM hands` for the room should equal the hands the bots report.
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
 

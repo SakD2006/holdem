@@ -2,3 +2,4 @@
 # To change the schema, add a new file (V2__what_it_does.sql) and list it here. Never edit a file
 # that has already been applied.
 V1__init.sql
+V2__one_record_per_hand.sql

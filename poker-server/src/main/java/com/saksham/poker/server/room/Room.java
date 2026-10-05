@@ -36,17 +36,22 @@ import com.saksham.poker.common.protocol.server.RoomSnapshot;
 import com.saksham.poker.common.protocol.server.SeatUpdate;
 import com.saksham.poker.engine.card.DeckFactory;
 import com.saksham.poker.engine.event.ActionRequested;
+import com.saksham.poker.engine.event.BlindPosted;
 import com.saksham.poker.engine.event.GameEvent;
 import com.saksham.poker.engine.event.HandCompleted;
+import com.saksham.poker.engine.event.PlayerActed;
 import com.saksham.poker.engine.event.PotAwarded;
 import com.saksham.poker.engine.event.StreetDealt;
 import com.saksham.poker.engine.hand.HandConfig;
 import com.saksham.poker.engine.hand.HandResult;
 import com.saksham.poker.engine.hand.HoldemHand;
+import com.saksham.poker.engine.hand.Street;
 import com.saksham.poker.engine.rules.LegalActions;
+import com.saksham.poker.server.db.HandRecord;
 import com.saksham.poker.server.player.ActionRequest;
 import com.saksham.poker.server.player.SeatController;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -98,6 +103,10 @@ public final class Room {
     private Map<Integer, Long> handPlayers = Map.of();
     private long handNo;
     private int buttonSeat = -1;
+    /** Everyone dealt into the current hand, including anyone who has since left. For the record. */
+    private Map<Integer, RoomMember> handRoster = Map.of();
+    private final List<HandRecord.ActionRecord> handActions = new ArrayList<>();
+    private Instant handStartedAt;
 
     /** Engine events not yet shown to the players. */
     private final Deque<GameEvent> pending = new ArrayDeque<>();
@@ -339,6 +348,7 @@ public final class Room {
         hand = null;
         view = null;
         handPlayers = Map.of();
+        handRoster = Map.of();
         setState(RoomState.CLOSED);
         for (RoomMember member : members.values()) {
             listener.released(member.userId, code);
@@ -513,9 +523,13 @@ public final class Room {
         }
         Map<Integer, Long> stacks = new TreeMap<>();
         handPlayers = new HashMap<>();
+        handRoster = new TreeMap<>();
+        handActions.clear();
+        handStartedAt = clock.instant();
         for (RoomMember player : players) {
             stacks.put(player.seat, player.stack);
             handPlayers.put(player.seat, player.userId);
+            handRoster.put(player.seat, player);
             player.autoAct = false;
         }
         handNo++;
@@ -694,6 +708,7 @@ public final class Room {
             return;
         }
         view.apply(event);
+        recordForHistory(event);
         if (event instanceof PotAwarded) {
             return; // reported as part of HAND_ENDED
         }
@@ -740,7 +755,34 @@ public final class Room {
         currentTurn = null;
     }
 
+    /** Notes blinds and actions as they are shown, for the hand's permanent record. */
+    private void recordForHistory(GameEvent event) {
+        if (event instanceof BlindPosted blind) {
+            handActions.add(new HandRecord.ActionRecord(handActions.size() + 1, handRoster.get(blind.seat()).userId,
+                    blind.seat(), Street.PREFLOP.name(), blind.bigBlind() ? "POST_BB" : "POST_SB", blind.amount(),
+                    blind.amount(), blind.allIn()));
+        } else if (event instanceof PlayerActed acted) {
+            handActions.add(new HandRecord.ActionRecord(handActions.size() + 1, handRoster.get(acted.seat()).userId,
+                    acted.seat(), acted.street().name(), acted.type().name(), acted.amount(), acted.streetBet(),
+                    acted.allIn()));
+        }
+    }
+
+    private HandRecord recordOf(HandResult result) {
+        List<HandRecord.PlayerRecord> players = new ArrayList<>();
+        for (Map.Entry<Integer, RoomMember> entry : handRoster.entrySet()) {
+            int seat = entry.getKey();
+            players.add(new HandRecord.PlayerRecord(entry.getValue().userId, entry.getValue().username, seat,
+                    result.holeCards().get(seat), result.startStacks().get(seat), result.endStacks().get(seat),
+                    result.net(seat), result.shownSeats().contains(seat), result.winners().contains(seat)));
+        }
+        return new HandRecord(code, settings.name(), handNo, settings.smallBlind(), settings.bigBlind(),
+                view.buttonSeat(), result.board(), result.totalPot(), handStartedAt, clock.instant(), players,
+                handActions);
+    }
+
     private void finishHand(HandResult result) {
+        HandRecord record = recordOf(result);
         List<RoomMember> changed = new ArrayList<>();
         for (Map.Entry<Integer, Long> entry : handPlayers.entrySet()) {
             RoomMember member = seats[entry.getKey()];
@@ -749,8 +791,9 @@ public final class Room {
             }
             member.stack = result.endStacks().get(entry.getKey());
             member.autoAct = false;
-            if (member.stack == 0 && !member.sittingOut) {
-                // Out of chips: they stay and watch, and may rebuy if the room allows it.
+            if (member.stack == 0) {
+                // Out of chips: they stay and watch, and may rebuy if the room allows it. Everyone is
+                // told, even if the player was already sitting out, so no client misses the bust.
                 member.sittingOut = true;
                 changed.add(member);
             }
@@ -759,9 +802,12 @@ public final class Room {
         hand = null;
         view = null;
         handPlayers = Map.of();
+        handRoster = Map.of();
         for (RoomMember member : changed) {
             broadcast(new SeatUpdate(infoOf(member)));
         }
+        // Saving is someone else's job, on another thread: the room only hands the record over.
+        listener.handFinished(record);
         scheduleNextHand(timings.betweenHandsMs());
     }
 

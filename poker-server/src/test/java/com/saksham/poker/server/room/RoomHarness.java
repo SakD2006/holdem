@@ -3,6 +3,7 @@ package com.saksham.poker.server.room;
 import com.saksham.poker.common.action.ActionType;
 import com.saksham.poker.common.protocol.dto.RoomState;
 import com.saksham.poker.engine.card.DeckFactory;
+import com.saksham.poker.server.db.HandRecord;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -36,6 +37,7 @@ final class RoomHarness implements RoomScheduler, RoomListener {
     final List<Scheduled> timers = new ArrayList<>();
     final List<Long> released = new ArrayList<>();
     final List<RoomState> states = new ArrayList<>();
+    final List<HandRecord> hands = new ArrayList<>();
     final Map<Long, FakePlayer> players = new LinkedHashMap<>();
     boolean closed;
     long nowMs = Instant.parse("2026-10-05T10:00:00Z").toEpochMilli();
@@ -84,6 +86,11 @@ final class RoomHarness implements RoomScheduler, RoomListener {
     @Override
     public void stateChanged(String code, RoomState state) {
         states.add(state);
+    }
+
+    @Override
+    public void handFinished(HandRecord hand) {
+        hands.add(hand);
     }
 
     @Override

@@ -12,6 +12,7 @@ import com.saksham.poker.common.protocol.dto.PlayerInfo;
 import com.saksham.poker.common.protocol.dto.RoomState;
 import com.saksham.poker.engine.card.Deck;
 import com.saksham.poker.engine.card.DeckFactory;
+import com.saksham.poker.server.db.HandRecord;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -36,8 +37,9 @@ class RoomManagerTest {
 
     private final ScheduledExecutorService timers = Executors.newScheduledThreadPool(2);
     private final List<RoomState> savedStates = new CopyOnWriteArrayList<>();
+    private final List<HandRecord> savedHands = new CopyOnWriteArrayList<>();
     private final RoomManager manager = new RoomManager(timers, (code, state) -> savedStates.add(state),
-            NO_WAITS, seededDecks(7), Clock.systemUTC());
+            savedHands::add, NO_WAITS, seededDecks(7), Clock.systemUTC());
 
     @AfterEach
     void stop() {
@@ -230,5 +232,13 @@ class RoomManagerTest {
         assertThat(chips % 10_000).isZero();
         assertThat(chips).isBetween(60_000L, 60_000L + rebuys * 10_000L);
         assertThat(host.handsEnded.get()).isGreaterThan(200);
+
+        // Every hand that ended was handed over for saving, once, in order, and balanced.
+        assertThat(savedHands).hasSize(host.handsEnded.get());
+        for (int i = 0; i < savedHands.size(); i++) {
+            HandRecord hand = savedHands.get(i);
+            assertThat(hand.handNo()).isEqualTo(i + 1);
+            assertThat(hand.players().stream().mapToLong(HandRecord.PlayerRecord::net).sum()).isZero();
+        }
     }
 }

@@ -180,6 +180,9 @@ never lands on a waiting player.
 **Run-outs.** The engine deals the rest of the board at once; the room reveals it a street at a
 time with the pause, and a snapshot taken meanwhile shows only what has been revealed.
 
+**Busting.** When a hand leaves a player with no chips, everyone is sent a `SEAT_UPDATE` showing
+them sat out with a stack of 0, whether or not they were already sitting out.
+
 **Membership.** A room holds at most `maxPlayers` people, seated or not; one more is `ROOM_FULL`.
 Seats are numbered 0 to `maxPlayers − 1`, and can be changed only before the game starts. The
 host need not be seated. A kick is refused once the game has started, and the host cannot kick
@@ -274,6 +277,11 @@ that is too short, a room with 12 seats).
   6–72 characters. Room settings are checked against the ranges in §1 (name 1–40 characters,
   blinds at least 1, big blind at least the small blind, starting stack at least the big blind).
 - A room code typed in lower case or with spaces around it is accepted.
+- `GET /api/hands?page=` lists the hands the logged-in player was dealt into, newest first, 20 to a
+  page (`mine=true` is the only mode, so the parameter is optional). `GET /api/hands/{id}` gives a
+  whole hand to any logged-in player; a hand that does not exist is `INVALID_REQUEST`.
+  `GET /api/leaderboard` gives up to 50 players by total net, with shared ranks for ties.
+- Times in API answers are milliseconds since 1970 UTC.
 
 **JSP pages** (served by the same server, open from any browser on the LAN; servlets are
 controllers, JSPs in `WEB-INF/views/`, JSTL + EL only, `<c:out>` for user text):
@@ -320,8 +328,16 @@ hand_actions(id BIGSERIAL PK, hand_id BIGINT FK, seq INT, user_id BIGINT FK, str
 - Migrations are listed in `db/migrations.txt` and recorded in `schema_version`.
 - Rooms live in the server's memory. At startup every room the database still shows as open is
   marked `CLOSED`.
-- A finished hand is saved in ONE JDBC transaction (commit/rollback) by `HandRecordWriter`.
-- Other players' folded hole cards are never returned by the API.
+- A finished hand is saved in ONE JDBC transaction (commit/rollback) by `HandRecordWriter`, on its
+  own thread: rooms only put the record in its queue. A save that fails is tried 3 times, half a
+  second apart; after that the hand is written to `data/failed-hands/` as JSON, complete enough
+  to load later. On shutdown the hands already queued are saved before the database closes.
+- `hands(room_id, hand_no)` is unique (migration V2), so a retried save can never store a hand
+  twice.
+- A player who left during a hand is still in its record.
+- Other players' folded hole cards are never returned by the API. Hole cards are returned to the
+  player who held them, and to everyone if they were shown at showdown. The filtering is
+  `StoredHand.viewFor`, applied before a hand leaves the server.
 - Leaderboard: `SUM(net)`, `COUNT(*)`, `SUM(won::int)` grouped by user.
 
 ---
@@ -332,8 +348,8 @@ hand_actions(id BIGSERIAL PK, hand_id BIGINT FK, seq INT, user_id BIGINT FK, str
 |---|---|---|
 | `server.properties` | server | `Properties`; DB URL/user/password, ports, timings. Optional: anything left out keeps its default |
 | `data/logs/server.log` | server (Logback) | the server log, one file per day, kept two weeks |
-| `data/hand-history/room-{code}/{yyyy-MM-dd}.txt` | `HandHistoryFileWriter` | readable text, appended per hand, `BufferedWriter` |
-| `data/failed-hands/*.json` | `HandRecordWriter` | fallback when the DB write fails 3× |
+| `data/hand-history/room-{code}/{yyyy-MM-dd}.txt` | `HandHistoryFileWriter` | readable text, appended per hand, `BufferedWriter`. The day is the host machine's local date. Shows only what was public at the table: hole cards appear only if shown at showdown |
+| `data/failed-hands/room-{code}-hand-{no}-{time}.json` | `HandRecordWriter` | fallback when the DB write fails 3×; holds the whole hand, private cards included |
 | `~/.holdem/client.properties` | desktop app | last server IP, last username, sound on/off |
 | `~/.holdem/session.dat` | desktop app | remember-me token via `ObjectOutputStream`, deleted on logout |
 | user-chosen `.txt` | desktop app export | `FileChooser` + `BufferedWriter` |
