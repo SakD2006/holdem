@@ -68,10 +68,17 @@ public final class BotMain {
         Queue<String> problems = new ConcurrentLinkedQueue<>();
         List<Bot> bots = new ArrayList<>();
         List<String> tokens = new ArrayList<>();
+        // One background thread sends the pings and, after each bot has "thought", its action.
+        ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "bot-timer");
+            thread.setDaemon(true);
+            return thread;
+        });
         for (int i = 0; i < options.bots(); i++) {
             String name = "bot_" + (i + 1);
             AuthResponse login = api.registerOrLogin(name, PASSWORD);
-            bots.add(new Bot(name, login.user().id(), i, problems));
+            bots.add(new Bot(name, login.user().id(), i, problems, timer, options.thinkMinMs(),
+                    options.thinkMaxMs()));
             tokens.add(login.token());
         }
 
@@ -83,16 +90,11 @@ public final class BotMain {
             log.info("Created room {}", code);
         }
 
-        ScheduledExecutorService pinger = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "bot-ping");
-            thread.setDaemon(true);
-            return thread;
-        });
         try {
             for (int i = 0; i < bots.size(); i++) {
                 bots.get(i).connect(api.http(), options.webSocketUrl(tokens.get(i)), code);
             }
-            pinger.scheduleAtFixedRate(() -> bots.forEach(Bot::ping), PING_SECONDS, PING_SECONDS, TimeUnit.SECONDS);
+            timer.scheduleAtFixedRate(() -> bots.forEach(Bot::ping), PING_SECONDS, PING_SECONDS, TimeUnit.SECONDS);
 
             if (!awaitSeated(bots)) {
                 problems.add("not every bot found a seat within " + SEATING_TIMEOUT_SECONDS + " seconds");
@@ -110,7 +112,7 @@ public final class BotMain {
             }
         } finally {
             bots.forEach(Bot::close);
-            pinger.shutdownNow();
+            timer.shutdownNow();
         }
 
         int hands = bots.get(0).handsEnded();

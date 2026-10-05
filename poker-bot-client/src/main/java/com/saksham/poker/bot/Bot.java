@@ -31,6 +31,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +56,9 @@ final class Bot implements WebSocket.Listener {
     private final long userId;
     private final int preferredSeat;
     private final Queue<String> problems;
+    private final ScheduledExecutorService timer;
+    private final int thinkMinMs;
+    private final int thinkMaxMs;
     private final MessageCodec codec = new MessageCodec();
     private final Random random;
     private final StringBuilder partial = new StringBuilder();
@@ -66,6 +71,7 @@ final class Bot implements WebSocket.Listener {
 
     // ---- what the bot knows about the room
     private int maxPlayers = 9;
+    private int turnSeconds = 25;
     private boolean rebuyAllowed;
     private final Set<Integer> triedSeats = new HashSet<>();
     private volatile int seat = PlayerInfo.NO_SEAT;
@@ -80,11 +86,20 @@ final class Bot implements WebSocket.Listener {
     /** The run is over: stop answering turns, and expect the room to vanish. */
     private volatile boolean stopping;
 
-    Bot(String name, long userId, int preferredSeat, Queue<String> problems) {
+    /**
+     * @param timer runs a bot's action after it has "thought"
+     * @param thinkMinMs the shortest wait before acting
+     * @param thinkMaxMs the longest; with both 0 the bot acts at once
+     */
+    Bot(String name, long userId, int preferredSeat, Queue<String> problems, ScheduledExecutorService timer,
+            int thinkMinMs, int thinkMaxMs) {
         this.name = name;
         this.userId = userId;
         this.preferredSeat = preferredSeat;
         this.problems = problems;
+        this.timer = timer;
+        this.thinkMinMs = thinkMinMs;
+        this.thinkMaxMs = thinkMaxMs;
         this.random = new Random(userId * 31 + System.nanoTime());
     }
 
@@ -226,6 +241,7 @@ final class Bot implements WebSocket.Listener {
 
     private void onSnapshot(RoomSnapshot snapshot) {
         maxPlayers = snapshot.settings().maxPlayers();
+        turnSeconds = snapshot.settings().turnSeconds();
         rebuyAllowed = snapshot.settings().rebuyAllowed();
         roomClosed = snapshot.state() == RoomState.CLOSED;
         if (snapshot.yourSeat() != PlayerInfo.NO_SEAT) {
@@ -301,7 +317,11 @@ final class Bot implements WebSocket.Listener {
         }
     }
 
-    /** Mostly checks and calls, sometimes folds, bets or raises the minimum, occasionally shoves. */
+    /**
+     * Mostly checks and calls, sometimes folds, bets or raises the minimum, occasionally shoves.
+     * The choice is made at once but sent after a pause, so a person at the table can follow what
+     * the bots do instead of watching a blur.
+     */
     private void act(ActionRequired turn) {
         boolean canBetOrRaise = turn.canBet() || turn.canRaise();
         ActionType action;
@@ -317,7 +337,33 @@ final class Bot implements WebSocket.Listener {
         } else {
             action = ActionType.ALL_IN;
         }
-        send(new SubmitAction(turn.turnId(), action, amount));
+        SubmitAction answer = new SubmitAction(turn.turnId(), action, amount);
+        long wait = thinkingTime(action);
+        if (wait <= 0) {
+            send(answer);
+        } else {
+            timer.schedule(() -> {
+                if (!stopping) {
+                    send(answer);
+                }
+            }, wait, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /**
+     * How long to wait before acting: a random time in the configured range, half as long again
+     * before putting chips in by choice. It never uses more than half the turn's time, so a bot
+     * cannot time itself out.
+     */
+    private long thinkingTime(ActionType action) {
+        if (thinkMaxMs <= 0) {
+            return 0;
+        }
+        long wait = thinkMinMs + random.nextInt(thinkMaxMs - thinkMinMs + 1);
+        if (action == ActionType.BET || action == ActionType.RAISE || action == ActionType.ALL_IN) {
+            wait += wait / 2;
+        }
+        return Math.min(wait, turnSeconds * 500L);
     }
 
     private void problem(String what) {

@@ -446,7 +446,10 @@ never send other players' cards or deck order; chat length-limited and escaped i
   with no code creates its own room and starts it. Each bot reports another player's hole
   cards, a skipped sequence number, a hand whose wins and losses do not total zero, a stack that
   changed between hands, and any refusal it did not provoke. Target: 6 bots, 500 hands, no
-  problems. For speed the server is started with `poker-bot-client/soak-server.properties`.
+  problems. For speed the server is started with `poker-bot-client/soak-server.properties` and the
+  bots with `--think 0`. Otherwise a bot waits a random 0.8 to 2.5 seconds before acting (`--think
+  min-max`), half as long again before a bet or raise and never more than half the turn time, so
+  that people playing with bots can follow the game.
 - **Manual:** `docs/QA.md` checklist for a 3-laptop LAN demo.
 
 ---

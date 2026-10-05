@@ -132,10 +132,13 @@ with no waits between hands instead:
 ```
 
 ```bash
-./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500"
+./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"
 ```
 
 Add `--room ABC234` to make the bots join a room you are hosting instead of creating their own.
+Bots pause for a second or two before each action, a little longer before a bet or raise, so you
+can follow what they do; `--think 300-900` changes the range (in milliseconds) and `--think 0`
+makes them act at once.
 The bots use accounts named `bot_1` to `bot_9`, which they register the first time.
 
 ## Where hands are kept
