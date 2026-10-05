@@ -26,6 +26,7 @@ import com.saksham.poker.common.protocol.server.Showdown;
 import com.saksham.poker.common.protocol.server.StreetDealt;
 import com.saksham.poker.engine.card.DeckFactory;
 import com.saksham.poker.engine.card.StackedDeckFactory;
+import com.saksham.poker.server.db.HandRecord;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -770,6 +771,22 @@ class RoomTest {
     }
 
     @Test
+    void aPlayerWhoBustsWhileAlreadySittingOutIsStillAnnounced() {
+        FakePlayer[] p = headsUp();
+        table.run(new RoomCommands.SitOut(2));
+        int updatesBefore = p[0].all(SeatUpdate.class).size();
+
+        table.act(p[0], ActionType.ALL_IN);
+        table.act(p[1], ActionType.CALL);
+
+        assertThat(p[0].all(SeatUpdate.class)).hasSize(updatesBefore + 1);
+        PlayerInfo busted = playerIn(p[0].last(SeatUpdate.class));
+        assertThat(busted.userId()).isEqualTo(2);
+        assertThat(busted.stack()).isZero();
+        assertThat(busted.sittingOut()).isTrue();
+    }
+
+    @Test
     void aBustedPlayerCanRebuyToTheStartingStackWhenTheRoomAllowsIt() {
         FakePlayer[] p = bustSeatOne();
 
@@ -828,6 +845,100 @@ class RoomTest {
         table.fire(RoomCommands.ContinueDelivery.class);
         assertThat(p[0].all(Showdown.class)).hasSize(1);
         assertThat(p[0].last(HandEnded.class).stacks()).containsEntry(0, 20_000L);
+    }
+
+    // =====================================================================================
+    // The record of each hand
+    // =====================================================================================
+
+    @Test
+    void aFinishedHandIsHandedOverAsACompleteRecord() {
+        FakePlayer[] p = headsUp();
+        List<Card> ashasCards = p[0].last(HoleCards.class).cards();
+        table.act(p[0], ActionType.RAISE, 300);
+        table.act(p[1], ActionType.CALL);
+        assertThat(table.hands).isEmpty();
+        table.checkDown();
+
+        assertThat(table.hands).hasSize(1);
+        HandRecord hand = table.hands.get(0);
+        assertThat(hand.roomCode()).isEqualTo("ABC234");
+        assertThat(hand.roomName()).isEqualTo("Test");
+        assertThat(hand.handNo()).isEqualTo(1);
+        assertThat(hand.smallBlind()).isEqualTo(50);
+        assertThat(hand.bigBlind()).isEqualTo(100);
+        assertThat(hand.buttonSeat()).isZero();
+        assertThat(hand.board()).isEqualTo(Card.parseAll("2s 7h 9c Jd 3s"));
+        assertThat(hand.totalPot()).isEqualTo(600);
+        assertThat(hand.startedAt()).isEqualTo(hand.endedAt());
+
+        assertThat(hand.players()).extracting(HandRecord.PlayerRecord::username).containsExactly("asha", "ravi");
+        HandRecord.PlayerRecord asha = hand.players().get(0);
+        assertThat(asha.userId()).isEqualTo(1);
+        assertThat(asha.seat()).isZero();
+        assertThat(asha.holeCards()).isEqualTo(ashasCards);
+        assertThat(asha.startStack()).isEqualTo(10_000);
+        assertThat(asha.endStack()).isEqualTo(10_300);
+        assertThat(asha.net()).isEqualTo(300);
+        assertThat(asha.showedDown()).isTrue();
+        assertThat(asha.won()).isTrue();
+        assertThat(hand.players().get(1).net()).isEqualTo(-300);
+        assertThat(hand.players().get(1).won()).isFalse();
+
+        // Blinds are part of the record, then every action in order.
+        assertThat(hand.actions()).extracting(HandRecord.ActionRecord::action).containsExactly(
+                "POST_SB", "POST_BB", "RAISE", "CALL", "CHECK", "CHECK", "CHECK", "CHECK", "CHECK", "CHECK");
+        assertThat(hand.actions()).extracting(HandRecord.ActionRecord::seq)
+                .containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        assertThat(hand.actions()).extracting(HandRecord.ActionRecord::street).containsExactly(
+                "PREFLOP", "PREFLOP", "PREFLOP", "PREFLOP", "FLOP", "FLOP", "TURN", "TURN", "RIVER", "RIVER");
+        HandRecord.ActionRecord raise = hand.actions().get(2);
+        assertThat(raise.userId()).isEqualTo(1);
+        assertThat(raise.amount()).isEqualTo(250);
+        assertThat(raise.streetTotal()).isEqualTo(300);
+        assertThat(hand.actions().get(3).amount()).isEqualTo(200);
+    }
+
+    @Test
+    void aHandWonWithoutShowdownRecordsNoShownCardsAndNoBoard() {
+        FakePlayer[] p = headsUp();
+        table.act(p[0], ActionType.FOLD);
+
+        HandRecord hand = table.hands.get(0);
+        assertThat(hand.board()).isEmpty();
+        assertThat(hand.totalPot()).isEqualTo(100);
+        assertThat(hand.players()).extracting(HandRecord.PlayerRecord::showedDown).containsExactly(false, false);
+        assertThat(hand.players()).extracting(HandRecord.PlayerRecord::won).containsExactly(false, true);
+        // The cards are still kept, privately, for each player's own history.
+        assertThat(hand.players().get(0).holeCards()).hasSize(2);
+        assertThat(hand.actions()).extracting(HandRecord.ActionRecord::action)
+                .containsExactly("POST_SB", "POST_BB", "FOLD");
+    }
+
+    @Test
+    void aPlayerWhoLeftDuringTheHandIsStillInItsRecord() {
+        FakePlayer[] p = threeHanded();
+        table.run(new RoomCommands.LeaveRoom(2));
+        table.checkDown();
+
+        HandRecord hand = table.hands.get(0);
+        assertThat(hand.players()).extracting(HandRecord.PlayerRecord::userId).containsExactly(1L, 2L, 3L);
+        assertThat(hand.players().get(1).net()).isEqualTo(-50);
+        assertThat(hand.players().stream().mapToLong(HandRecord.PlayerRecord::net).sum()).isZero();
+        assertThat(hand.actions().stream().filter(a -> a.userId() == 2).map(HandRecord.ActionRecord::action))
+                .containsExactly("POST_SB", "FOLD");
+        assertThat(p[0].all(HandEnded.class)).hasSize(1);
+    }
+
+    @Test
+    void everyHandGetsItsOwnRecordNumberedInOrder() {
+        headsUp();
+        table.checkDown();
+        table.fire(RoomCommands.StartNextHand.class);
+        table.checkDown();
+
+        assertThat(table.hands).extracting(HandRecord::handNo).containsExactly(1L, 2L);
+        assertThat(table.hands.get(1).buttonSeat()).isEqualTo(1);
     }
 
     // =====================================================================================

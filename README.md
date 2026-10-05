@@ -9,12 +9,13 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 5 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
+**Status:** Phase 6 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
 betting, side pots, showdown) and is tested on 100,000 random hands. Every message the app and
 server will exchange is defined and tested as JSON. The server has a database, an API and live
 rooms over WebSocket: players join by code, take seats, and play real hands with turn timers,
-sitting out, rebuys and reconnecting. Bots can play it today; the desktop app for people is still
-an empty window.
+sitting out, rebuys and reconnecting. Every hand is saved to the database and to readable text
+files, and the API serves hand history, replays and a leaderboard. Bots can play it today; the
+desktop app for people is still an empty window.
 
 ## Modules
 
@@ -117,6 +118,18 @@ with no waits between hands instead:
 
 Add `--room ABC234` to make the bots join a room you are hosting instead of creating their own.
 The bots use accounts named `bot_1` to `bot_9`, which they register the first time.
+
+## Where hands are kept
+
+Every finished hand is saved in three places, all under `data/` on the host machine:
+
+| Where | What |
+|---|---|
+| The database | Each hand with its players and actions, for history, replays and the leaderboard |
+| `data/hand-history/room-<code>/<date>.txt` | A text file anyone can read, one per room per day. It shows only what was public at the table |
+| `data/failed-hands/` | Normally empty. If the database is down, hands are written here as JSON instead of being lost |
+
+The server log is `data/logs/server.log`.
 
 ## Giving the app to other players
 

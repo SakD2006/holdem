@@ -3,7 +3,13 @@ package com.saksham.poker.server.db;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.saksham.poker.common.api.HandActionInfo;
+import com.saksham.poker.common.api.HandPage;
+import com.saksham.poker.common.api.HandPlayerInfo;
+import com.saksham.poker.common.api.HandSummary;
+import com.saksham.poker.common.api.LeaderboardEntry;
 import com.saksham.poker.common.api.RoomPreview;
+import com.saksham.poker.common.card.Card;
 import com.saksham.poker.common.exception.RoomNotFoundException;
 import com.saksham.poker.common.exception.UnauthorizedException;
 import com.saksham.poker.common.exception.UsernameTakenException;
@@ -45,14 +51,16 @@ class DatabaseTest {
     private static UserDao users;
     private static AuthTokenDao tokens;
     private static RoomDao rooms;
+    private static HandDao hands;
 
     @BeforeAll
     static void createSchema() throws Exception {
         database = new TestDatabase();
-        assertThat(new MigrationRunner(database.dataSource()).migrate()).isEqualTo(1);
+        assertThat(new MigrationRunner(database.dataSource()).migrate()).isEqualTo(2);
         users = new UserDao(database.dataSource());
         tokens = new AuthTokenDao(database.dataSource());
         rooms = new RoomDao(database.dataSource());
+        hands = new HandDao(database.dataSource());
     }
 
     @AfterAll
@@ -201,6 +209,148 @@ class DatabaseTest {
         assertThat(rooms.closeAllOpen(NOW)).isZero();
     }
 
+    // ---- hands
+
+    /** Three users and a room for them to have played in. */
+    private static long[] threePlayersIn(String roomCode, String prefix) throws Exception {
+        long asha = users.create(prefix + "_asha", "hash").id();
+        long ravi = users.create(prefix + "_ravi", "hash").id();
+        long meera = users.create(prefix + "_meera", "hash").id();
+        rooms.create(roomCode, asha, SETTINGS).orElseThrow();
+        return new long[] {asha, ravi, meera};
+    }
+
+    @Test
+    void aSavedHandIsReadBackWithItsPlayersAndActions() throws Exception {
+        long[] u = threePlayersIn("HND234", "read");
+        hands.save(Hands.showdown("HND234", 12, u[0], u[1], u[2]));
+
+        HandPage page = hands.pageFor(u[2], 1, 20);
+        assertThat(page.total()).isEqualTo(1);
+        HandSummary summary = page.hands().get(0);
+        assertThat(summary.roomCode()).isEqualTo("HND234");
+        assertThat(summary.roomName()).isEqualTo("Friday game");
+        assertThat(summary.handNo()).isEqualTo(12);
+        assertThat(summary.endedAtMs()).isEqualTo(Hands.ENDED.toEpochMilli());
+        assertThat(summary.yourCards()).isEqualTo(Card.parseAll("Ah Ad"));
+        assertThat(summary.board()).isEqualTo(Card.parseAll("2c 5d 9h Js 3s"));
+        assertThat(summary.net()).isEqualTo(300);
+        assertThat(summary.won()).isTrue();
+
+        StoredHand stored = hands.find(summary.id()).orElseThrow();
+        assertThat(stored.buttonSeat()).isZero();
+        assertThat(stored.totalPot()).isEqualTo(600);
+        assertThat(stored.startedAtMs()).isEqualTo(Hands.STARTED.toEpochMilli());
+        assertThat(stored.players()).extracting(HandPlayerInfo::username)
+                .containsExactly("read_asha", "read_ravi", "read_meera");
+        assertThat(stored.players()).extracting(HandPlayerInfo::net).containsExactly(0L, -300L, 300L);
+        assertThat(stored.players().get(0).holeCards()).isEqualTo(Card.parseAll("7c 2d"));
+        assertThat(stored.players().get(1).showedDown()).isTrue();
+        assertThat(stored.actions()).hasSize(11);
+        assertThat(stored.actions().get(0).action()).isEqualTo("POST_SB");
+        assertThat(stored.actions().get(0).username()).isEqualTo("read_ravi");
+        assertThat(stored.actions().get(5).street()).isEqualTo("FLOP");
+        assertThat(stored.actions().get(5).amount()).isEqualTo(200);
+        assertThat(stored.actions()).extracting(HandActionInfo::seq).isSorted();
+
+        // Through the API's eyes: the folder's cards are hidden from the others.
+        assertThat(stored.viewFor(u[2]).players().get(0).holeCards()).isEmpty();
+        assertThat(stored.viewFor(u[0]).players().get(0).holeCards()).isEqualTo(Card.parseAll("7c 2d"));
+        assertThat(hands.find(-1)).isEmpty();
+    }
+
+    @Test
+    void aHandFoldedPreflopIsStoredWithAnEmptyBoard() throws Exception {
+        long[] u = threePlayersIn("HND567", "fold");
+        hands.save(Hands.foldedPreflop("HND567", 1, u[0], u[1]));
+
+        HandSummary summary = hands.pageFor(u[0], 1, 20).hands().get(0);
+        assertThat(summary.board()).isEmpty();
+        assertThat(summary.net()).isEqualTo(100);
+        assertThat(hands.pageFor(u[2], 1, 20).total()).isZero();
+    }
+
+    @Test
+    void savingTheSameHandTwiceStoresItOnce() throws Exception {
+        long[] u = threePlayersIn("HND789", "twice");
+        HandRecord hand = Hands.showdown("HND789", 1, u[0], u[1], u[2]);
+
+        hands.save(hand);
+        hands.save(hand);
+
+        assertThat(hands.pageFor(u[0], 1, 20).total()).isEqualTo(1);
+    }
+
+    @Test
+    void aHandIsSavedWhollyOrNotAtAll() throws Exception {
+        long[] u = threePlayersIn("HNDKMN", "atomic");
+        // The third player does not exist, so the hand's own row goes in and then a player row fails.
+        HandRecord broken = Hands.showdown("HNDKMN", 1, u[0], u[1], -99);
+
+        assertThatThrownBy(() -> hands.save(broken))
+                .isInstanceOf(com.saksham.poker.common.exception.PersistenceException.class);
+        assertThatThrownBy(() -> hands.save(Hands.showdown("NOROOM", 1, u[0], u[1], u[2])))
+                .isInstanceOf(com.saksham.poker.common.exception.PersistenceException.class);
+
+        // Nothing of the broken hand was kept, so the same hand number can be saved properly.
+        assertThat(hands.pageFor(u[0], 1, 20).total()).isZero();
+        hands.save(Hands.showdown("HNDKMN", 1, u[0], u[1], u[2]));
+        assertThat(hands.pageFor(u[0], 1, 20).total()).isEqualTo(1);
+    }
+
+    @Test
+    void historyIsPagedNewestFirst() throws Exception {
+        long[] u = threePlayersIn("HNDPQR", "page");
+        for (int handNo = 1; handNo <= 5; handNo++) {
+            HandRecord base = Hands.foldedPreflop("HNDPQR", handNo, u[0], u[1]);
+            hands.save(new HandRecord(base.roomCode(), base.roomName(), base.handNo(), base.smallBlind(),
+                    base.bigBlind(), base.buttonSeat(), base.board(), base.totalPot(), base.startedAt(),
+                    base.endedAt().plusSeconds(handNo), base.players(), base.actions()));
+        }
+
+        HandPage first = hands.pageFor(u[0], 1, 2);
+        HandPage third = hands.pageFor(u[0], 3, 2);
+
+        assertThat(first.total()).isEqualTo(5);
+        assertThat(first.page()).isEqualTo(1);
+        assertThat(first.pageSize()).isEqualTo(2);
+        assertThat(first.hands()).extracting(HandSummary::handNo).containsExactly(5L, 4L);
+        assertThat(third.hands()).extracting(HandSummary::handNo).containsExactly(1L);
+        assertThat(hands.pageFor(u[0], 4, 2).hands()).isEmpty();
+    }
+
+    @Test
+    void theLeaderboardTotalsEveryPlayersHandsAndRanksThem() throws Exception {
+        long[] u = threePlayersIn("HNDSTU", "lead");
+        hands.save(Hands.showdown("HNDSTU", 1, u[0], u[1], u[2]));       // asha 0, ravi -300, meera +300
+        hands.save(Hands.showdown("HNDSTU", 2, u[0], u[1], u[2]));
+        hands.save(Hands.foldedPreflop("HNDSTU", 3, u[0], u[1]));         // asha +100, ravi -100
+
+        List<LeaderboardEntry> board = hands.leaderboard(1_000);
+
+        LeaderboardEntry meera = entry(board, "lead_meera");
+        LeaderboardEntry asha = entry(board, "lead_asha");
+        LeaderboardEntry ravi = entry(board, "lead_ravi");
+        assertThat(meera.totalNet()).isEqualTo(600);
+        assertThat(meera.handsPlayed()).isEqualTo(2);
+        assertThat(meera.handsWon()).isEqualTo(2);
+        assertThat(asha.totalNet()).isEqualTo(100);
+        assertThat(asha.handsPlayed()).isEqualTo(3);
+        assertThat(asha.handsWon()).isEqualTo(1);
+        assertThat(ravi.totalNet()).isEqualTo(-700);
+        assertThat(ravi.handsWon()).isZero();
+        assertThat(meera.rank()).isLessThan(asha.rank());
+        assertThat(asha.rank()).isLessThan(ravi.rank());
+        // Biggest winners first, and everyone's wins and losses cancel out.
+        assertThat(board).extracting(LeaderboardEntry::totalNet).isSortedAccordingTo((a, b) -> Long.compare(b, a));
+        assertThat(board.stream().mapToLong(LeaderboardEntry::totalNet).sum()).isZero();
+        assertThat(hands.leaderboard(1)).hasSize(1);
+    }
+
+    private static LeaderboardEntry entry(List<LeaderboardEntry> board, String username) {
+        return board.stream().filter(e -> e.username().equals(username)).findFirst().orElseThrow();
+    }
+
     // ---- the services on a real database
 
     @Test
@@ -208,8 +358,8 @@ class DatabaseTest {
         SessionService sessions = new SessionService(users, tokens, new PasswordHasher(1_000),
                 Clock.systemUTC(), Duration.ofDays(7));
         ScheduledExecutorService timers = Executors.newSingleThreadScheduledExecutor();
-        RoomManager manager = new RoomManager(timers, RoomStore.NONE, RoomTimings.DEFAULT, new SecureDeckFactory(),
-                Clock.systemUTC());
+        RoomManager manager = new RoomManager(timers, RoomStore.NONE, hand -> { }, RoomTimings.DEFAULT,
+                new SecureDeckFactory(), Clock.systemUTC());
         RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator(), manager);
 
         sessions.register("Flow_player", "secret1");

@@ -166,11 +166,11 @@ tried from a second PC.*
 
 **Concepts:** JDBC transactions, producer–consumer thread, file handling.
 
-- [ ] `HandRecord` (blind posts included as actions); `HandRecordWriter` thread (one transaction per hand, 3 retries, then
+- [x] `HandRecord` (blind posts included as actions); `HandRecordWriter` thread (one transaction per hand, 3 retries, then
       `data/failed-hands/*.json`).
-- [ ] `HandHistoryFileWriter` (readable text per room per day).
-- [ ] API: my hands (paged), one hand (hides others' folded cards), leaderboard.
-- [ ] Tests: DB-down fallback to file; card-visibility rules.
+- [x] `HandHistoryFileWriter` (readable text per room per day).
+- [x] API: my hands (paged), one hand (hides others' folded cards), leaderboard.
+- [x] Tests: DB-down fallback to file; card-visibility rules.
 
 **Done when:** after a 500-hand bot run, DB counts match, files exist, and `SUM(net)` per hand = 0.
 

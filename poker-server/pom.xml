@@ -59,6 +59,11 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!-- Writes dates in the JSON files for hands that could not be saved. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>

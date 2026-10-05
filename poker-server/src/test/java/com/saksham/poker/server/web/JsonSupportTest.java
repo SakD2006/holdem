@@ -28,6 +28,22 @@ class JsonSupportTest {
     }
 
     @Test
+    void pageAndIdNumbersMustBeWholeAndPositive() throws Exception {
+        assertThat(HandsServlet.positiveNumber("3", 1, "page")).isEqualTo(3);
+        assertThat(HandsServlet.positiveNumber(" 12 ", -1, "hand id")).isEqualTo(12);
+        // A missing page means the first page; a missing id is an error.
+        assertThat(HandsServlet.positiveNumber(null, 1, "page")).isEqualTo(1);
+        assertThat(HandsServlet.positiveNumber("", 1, "page")).isEqualTo(1);
+        for (String bad : new String[] {"0", "-2", "two", "1.5", "99999999999"}) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> HandsServlet.positiveNumber(bad, 1, "page"))
+                    .as(bad).isInstanceOf(com.saksham.poker.common.exception.InvalidRequestException.class)
+                    .hasMessageContaining("page").hasMessageContaining(bad);
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> HandsServlet.positiveNumber(null, -1, "hand id"))
+                .isInstanceOf(com.saksham.poker.common.exception.InvalidRequestException.class);
+    }
+
+    @Test
     void theTokenIsReadFromABearerHeader() {
         assertThat(AuthFilter.bearerToken("Bearer abc123")).isEqualTo("abc123");
         assertThat(AuthFilter.bearerToken("bearer abc123 ")).isEqualTo("abc123");

@@ -48,18 +48,33 @@ public abstract class BaseDao<T> {
 
     /** Runs a query and reads every row. */
     protected List<T> findAll(String sql, Object... params) {
-        return withConnection(connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                bind(statement, params);
-                try (ResultSet rows = statement.executeQuery()) {
-                    List<T> result = new ArrayList<>();
-                    while (rows.next()) {
-                        result.add(mapRow(rows));
-                    }
-                    return result;
+        return query(sql, this::mapRow, params);
+    }
+
+    /** Reads one row of a result as something other than {@code T}, for queries that join or total. */
+    @FunctionalInterface
+    protected interface RowMapper<R> {
+        R map(ResultSet row) throws SQLException;
+    }
+
+    /** Runs a query and reads every row with the given mapper. */
+    protected <R> List<R> query(String sql, RowMapper<R> mapper, Object... params) {
+        return withConnection(connection -> query(connection, sql, mapper, params));
+    }
+
+    /** As {@link #query(String, RowMapper, Object...)}, on a connection the caller already holds. */
+    protected static <R> List<R> query(Connection connection, String sql, RowMapper<R> mapper, Object... params)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bind(statement, params);
+            try (ResultSet rows = statement.executeQuery()) {
+                List<R> result = new ArrayList<>();
+                while (rows.next()) {
+                    result.add(mapper.map(rows));
                 }
+                return result;
             }
-        });
+        }
     }
 
     /**

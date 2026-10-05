@@ -22,6 +22,8 @@ public final class ServerConfig {
 
     /** System property naming the settings file; the server's start command sets it. */
     public static final String FILE_PROPERTY = "holdem.config";
+    /** System property naming the folder for logs and hand histories; also set by the start command. */
+    public static final String DATA_PROPERTY = "holdem.data";
 
     private final String dbUrl;
     private final String dbUser;
@@ -124,6 +126,11 @@ public final class ServerConfig {
     /** How long a login lasts. */
     public Duration tokenLifetime() {
         return tokenLifetime;
+    }
+
+    /** The folder the server writes its files under: logs, hand histories and unsaved hands. */
+    public Path dataFolder() {
+        return Path.of(System.getProperty(DATA_PROPERTY, "data"));
     }
 
     /** The waits rooms use between hands, during run-outs and after a disconnect. */
