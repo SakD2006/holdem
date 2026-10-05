@@ -91,9 +91,9 @@ have at the end, prompt.
 
 **Concepts:** abstract class + inheritance (`Message`), polymorphism (Jackson typing).
 
-- [ ] Abstract `Message`; one class per message in §5; `ErrorCode` payloads.
-- [ ] `MessageCodec` with polymorphic typing and 8 KB limit; `ProtocolException`.
-- [ ] Round-trip tests for every message; unknown type rejected.
+- [x] Abstract `Message`; one class per message in §5; `ErrorCode` payloads.
+- [x] `MessageCodec` with polymorphic typing and 8 KB limit; `ProtocolException`.
+- [x] Round-trip tests for every message; unknown type rejected.
 
 **Done when:** codec tests green; `poker-common` depends on nothing else in the project.
 

@@ -9,9 +9,10 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - What it must do: [docs/SPEC.md](docs/SPEC.md)
 - Build order and progress: [docs/PLAN.md](docs/PLAN.md)
 
-**Status:** Phase 2 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
-betting, side pots, showdown) and is tested on 100,000 random hands. The server starts and answers
-a ping, and the desktop app opens an empty window. Nothing is playable over the network yet.
+**Status:** Phase 3 of 8. The rules engine plays complete hands of Hold'em in memory (blinds,
+betting, side pots, showdown) and is tested on 100,000 random hands. Every message the app and
+server will exchange is defined and tested as JSON. The server starts and answers a ping, and the
+desktop app opens an empty window. Nothing is playable over the network yet.
 
 ## Modules
 
