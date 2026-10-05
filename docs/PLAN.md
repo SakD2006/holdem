@@ -192,11 +192,12 @@ Built in three steps, with a check between them.
 - [x] Waiting room with big room code + copy button, seat picker, host controls.
 - [x] `ApiClient`, `GameSocket`, `RoomState` with unit tests for its updates.
 
-*Step 7b: playing*
-- [ ] Table screen and action panel per §10; timer ring; animations; showdown + winners.
+*Step 7b: playing (done)*
+- [x] Table screen and action panel per §10; timer ring; animations; showdown + winners.
+- [x] "Sit in" and "Rebuy" in the action panel, so a player who timed out or went broke can get back in.
 
 *Step 7c: everything round the table*
-- [ ] Chat, hand log, sit out/in, rebuy, leave, host pause/resume/end.
+- [ ] Chat, sit out, host pause/resume/end. (The hand log, sit in, rebuy and leave are already in.)
 - [ ] Reconnecting overlay + snapshot restore.
 - [ ] Home: history, leaderboard; export hand history to file.
 - [ ] `docs/QA.md` manual checklist.

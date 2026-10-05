@@ -3,7 +3,7 @@ package com.saksham.poker.client.app;
 import com.saksham.poker.client.net.ApiClient;
 import com.saksham.poker.client.net.ServerAddress;
 import com.saksham.poker.client.view.ConnectView;
-import com.saksham.poker.client.view.GameStartedView;
+import com.saksham.poker.client.view.TableView;
 import com.saksham.poker.client.view.HomeView;
 import com.saksham.poker.client.view.LoginView;
 import com.saksham.poker.client.view.WaitingRoomView;
@@ -105,7 +105,7 @@ public final class SceneRouter {
         RoomSession current = room;
         Runnable choose = () -> {
             if (room == current) {
-                show(current.state().waiting() ? new WaitingRoomView(current) : new GameStartedView(current));
+                show(current.state().waiting() ? new WaitingRoomView(current) : new TableView(current));
             }
         };
         current.state().stageProperty().addListener((property, was, now) -> {

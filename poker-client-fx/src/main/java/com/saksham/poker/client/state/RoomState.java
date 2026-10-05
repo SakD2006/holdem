@@ -79,6 +79,8 @@ public final class RoomState {
     private final ObservableList<Card> board = FXCollections.observableArrayList();
     private final ObservableList<PotInfo> pots = FXCollections.observableArrayList();
     private final ObjectProperty<TurnInfo> turn = new SimpleObjectProperty<>();
+    /** When the current turn runs out, by this computer's clock; 0 when nobody is to act. */
+    private final LongProperty turnEndsAtMs = new SimpleLongProperty();
     private final ObservableList<Card> yourCards = FXCollections.observableArrayList();
 
     // ---- the side panel
@@ -176,6 +178,12 @@ public final class RoomState {
                 seat.buttonProperty().set(info.seat() == hand.buttonSeat());
             }
             setTurn(hand.turn());
+            if (hand.turn() != null) {
+                // Joining part-way through a turn: go by the server's deadline, but never show more
+                // than a full turn, in case the two computers' clocks disagree.
+                long left = hand.turn().deadlineEpochMs() - System.currentTimeMillis();
+                turnEndsAtMs.set(System.currentTimeMillis() + Math.max(0, Math.min(left, turnMs())));
+            }
             yourCards.setAll(snapshot.yourCards());
             SeatViewModel mine = seatAt(snapshot.yourSeat());
             if (mine != null) {
@@ -284,6 +292,14 @@ public final class RoomState {
         setTurn(new TurnInfo(required.seat(), required.turnId(), required.canCheck(), required.callAmount(),
                 required.canBet(), required.canRaise(), required.minRaiseTo(), required.maxRaiseTo(),
                 required.deadlineEpochMs()));
+        // A turn that has just been announced has its full time left. Counting from now, on this
+        // computer's clock, keeps the timer right even if the server's clock is set differently.
+        turnEndsAtMs.set(System.currentTimeMillis() + turnMs());
+    }
+
+    private long turnMs() {
+        RoomSettingsInfo current = settings.get();
+        return (current == null ? 25 : current.turnSeconds()) * 1_000L;
     }
 
     private void onPlayerActed(PlayerActed acted) {
@@ -384,6 +400,9 @@ public final class RoomState {
     }
 
     private void setTurn(TurnInfo newTurn) {
+        if (newTurn == null) {
+            turnEndsAtMs.set(0);
+        }
         turn.set(newTurn);
         for (SeatViewModel seat : seats) {
             seat.turnProperty().set(newTurn != null && newTurn.seat() == seat.seat());
@@ -591,6 +610,23 @@ public final class RoomState {
     /** Whose turn it is and what they may do, or null. */
     public ObjectProperty<TurnInfo> turnProperty() {
         return turn;
+    }
+
+    /** When the current turn runs out, in this computer's time; 0 when nobody is to act. */
+    public LongProperty turnEndsAtMsProperty() {
+        return turnEndsAtMs;
+    }
+
+    /** All chips in the middle: the pots plus the bets not yet collected. */
+    public long chipsInPlay() {
+        long total = 0;
+        for (PotInfo pot : pots) {
+            total += pot.amount();
+        }
+        for (SeatViewModel seat : seats) {
+            total += seat.streetBetProperty().get();
+        }
+        return total;
     }
 
     public boolean yourTurn() {

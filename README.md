@@ -14,9 +14,10 @@ betting, side pots, showdown) and is tested on 100,000 random hands. Every messa
 server will exchange is defined and tested as JSON. The server has a database, an API and live
 rooms over WebSocket: players join by code, take seats, and play real hands with turn timers,
 sitting out, rebuys and reconnecting. Every hand is saved to the database and to readable text
-files, and the API serves hand history, replays and a leaderboard. The desktop app lets you
-connect, register or log in, create or join a room and sit in its waiting room; the table itself
-is the next step, so for now only bots can play hands.
+files, and the API serves hand history, replays and a leaderboard. The desktop app is playable:
+connect, register or log in, create or join a room, and play hands at the table against other
+people or bots. Chat, the host's pause menu, reconnecting on its own and the history screens are
+still to come.
 
 ## Modules
 

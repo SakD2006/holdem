@@ -8,6 +8,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /** Small building blocks the screens share, so they look and behave alike. */
@@ -20,6 +21,8 @@ final class Ui {
         Label label = new Label(text);
         label.getStyleClass().addAll(styleClasses);
         label.setWrapText(true);
+        // Without this a wrapped label in a tight layout is cut to one line ending in "...".
+        label.setMinHeight(Region.USE_PREF_SIZE);
         return label;
     }
 

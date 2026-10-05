@@ -409,6 +409,12 @@ the server's log. A remembered login is checked with `GET /api/me` at startup: i
 the app opens on Home, otherwise on the login screen. Closing the window drops the connection but
 keeps the seat. Players see seats numbered from 1; the server numbers them from 0.
 
+The turn timer counts from the moment `ACTION_REQUIRED` arrives, on the player's own clock, so it
+is right even when the server's clock is set differently; only after a reconnect does it use the
+server's deadline, capped at one full turn. The quick sizes are: min, half pot, pot and all-in,
+where a pot-sized raise is the call plus what the pot would then hold. A second click on an action
+button sends nothing; a refused action re-opens the buttons with the reason shown.
+
 Cards and chips drawn with JavaFX shapes (no image assets). Network events → `Platform.runLater`;
 HTTP calls off the UI thread (`Task`/`CompletableFuture`). On disconnect: "Reconnecting…"
 overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`.
