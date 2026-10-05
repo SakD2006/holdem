@@ -31,6 +31,7 @@ class ExceptionTreeTest {
         map.put(new UsernameTakenException("m"), ErrorCode.USERNAME_TAKEN);
         map.put(new UnauthorizedException("m"), ErrorCode.UNAUTHORIZED);
         map.put(new ProtocolException("m"), ErrorCode.MALFORMED_MESSAGE);
+        map.put(new InvalidRequestException("m"), ErrorCode.INVALID_REQUEST);
         return map;
     }
 

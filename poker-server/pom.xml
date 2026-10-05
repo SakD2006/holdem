@@ -13,7 +13,7 @@
   <artifactId>poker-server</artifactId>
   <packaging>war</packaging>
   <name>poker-server</name>
-  <description>Table runtime, WebSocket game endpoint, servlets, JSP website and JDBC persistence.</description>
+  <description>Runs on the host machine in Tomcat 10.1: JSON API, WebSocket game, rooms, JDBC and JSP pages.</description>
 
   <properties>
     <cargo.maven.skip>false</cargo.maven.skip>
@@ -98,6 +98,9 @@
               <!-- 0.0.0.0 so other PCs on the LAN can connect. -->
               <cargo.hostname>0.0.0.0</cargo.hostname>
               <cargo.servlet.port>8080</cargo.servlet.port>
+              <!-- Tomcat runs from a folder under target/, so tell the server where its settings and its
+                   data folder (logs, hand histories) are. -->
+              <cargo.jvmargs>-Dholdem.config=${maven.multiModuleProjectDirectory}/server.properties -Dholdem.data=${maven.multiModuleProjectDirectory}/data</cargo.jvmargs>
             </properties>
           </configuration>
           <deployables>

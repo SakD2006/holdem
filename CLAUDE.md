@@ -71,6 +71,13 @@ docker compose up -d                                            # Postgres on lo
 
 Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 
+- The server needs PostgreSQL: `docker compose up -d` first. Tests tagged `db` need it too and are
+  skipped by default; each test class works in its own temporary schema, never the real tables.
+- `server.properties` is optional (defaults match `docker-compose.yml`). The server log is
+  `data/logs/server.log`.
+- Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
+  the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
+
 - The run goals (`cargo:run`, `javafx:run`, `exec:java`) need a phase before them (`compile` or
   `package`) so `-am` builds the modules they depend on. They are skipped in every module except
   the one that owns them (skip properties in the parent POM).
