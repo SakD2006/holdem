@@ -46,12 +46,12 @@ have at the end, prompt.
 
 **Concepts:** packages, enums, collections, `Comparable`, abstract class + inheritance (`PlayerAction`), user-defined exceptions (tree).
 
-- [ ] `poker-common`: `Suit`, `Rank`, `Card` (parse/format `"Ah"`), `ActionType`, abstract
+- [x] `poker-common`: `Suit`, `Rank`, `Card` (parse/format `"Ah"`), `ActionType`, abstract
       `PlayerAction` + 6 subclasses, `ErrorCode`, full `PokerException` tree (§9).
-- [ ] `poker-engine`: `Deck`, `DeckFactory`, `SecureDeckFactory`, `StackedDeckFactory`.
-- [ ] `HandCategory`, `HandValue` (Comparable), `HandEvaluator`.
-- [ ] Tests: every category, kickers, wheel, board-plays split, 1,000 random cross-checks vs a
-      brute-force reference in test code.
+- [x] `poker-engine`: `Deck`, `DeckFactory`, `SecureDeckFactory`, `StackedDeckFactory`.
+- [x] `HandCategory`, `HandValue` (Comparable), `HandEvaluator`.
+- [x] Tests: every category, kickers, wheel, board-plays split, 20,000 random cross-checks vs a
+      second, independently written reference evaluator in test code.
 
 **Done when:** all evaluator tests green.
 
