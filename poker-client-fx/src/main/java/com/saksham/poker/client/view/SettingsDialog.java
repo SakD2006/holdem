@@ -2,6 +2,7 @@ package com.saksham.poker.client.view;
 
 import com.saksham.poker.client.app.AppConfig;
 import com.saksham.poker.client.app.AppFiles;
+import com.saksham.poker.client.util.SoundPlayer;
 import com.saksham.poker.common.card.Card;
 import com.saksham.poker.common.exception.StorageException;
 import java.io.File;
@@ -20,8 +21,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 /**
- * The player's choices about how the cards look: which back design, their own picture for the back
- * if they have one, and whether the deck has four colours. Choices are saved when the dialog is
+ * The player's choices: how the cards look (which back design, their own picture for the back if
+ * they have one, whether the deck has four colours) and whether the table makes sounds. Choices are saved when the dialog is
  * confirmed and apply from the next card drawn.
  */
 public final class SettingsDialog extends Dialog<Void> {
@@ -34,6 +35,7 @@ public final class SettingsDialog extends Dialog<Void> {
     private final HBox backRow = new HBox(6);
     private final HBox faceRow = new HBox(8);
     private final CheckBox fourColour = new CheckBox("Four-colour deck: clubs green, diamonds blue");
+    private final CheckBox sound = new CheckBox("Play sounds at the table");
     private final Label message = Ui.message();
     private CardArt.Back chosen;
 
@@ -46,9 +48,19 @@ public final class SettingsDialog extends Dialog<Void> {
         this.folder = folder;
         this.chosen = CardArt.Back.named(config.cardBack());
         setTitle("Settings");
-        setHeaderText("How the cards look");
+        setHeaderText("Cards and sound");
         Ui.style(this);
 
+        sound.setSelected(config.soundOn());
+        // Ticking the box plays a sample, so the player hears what they are choosing.
+        sound.setOnAction(event -> {
+            if (sound.isSelected()) {
+                boolean was = SoundPlayer.enabled();
+                SoundPlayer.setEnabled(true);
+                SoundPlayer.play(SoundPlayer.Sound.YOUR_TURN);
+                SoundPlayer.setEnabled(was);
+            }
+        });
         fourColour.setSelected(config.fourColourDeck());
         fourColour.selectedProperty().addListener(observable -> preview());
         backRow.setAlignment(Pos.CENTER_LEFT);
@@ -64,6 +76,8 @@ public final class SettingsDialog extends Dialog<Void> {
                 Ui.label("Card faces", "field-label"),
                 faceRow,
                 fourColour,
+                Ui.label("Sound", "field-label"),
+                sound,
                 message);
         content.setPrefWidth(520);
         getDialogPane().setContent(content);
@@ -76,6 +90,7 @@ public final class SettingsDialog extends Dialog<Void> {
             if (button == save) {
                 config.setCardBack(chosen.name().toLowerCase());
                 config.setFourColourDeck(fourColour.isSelected());
+                config.setSoundOn(sound.isSelected());
                 try {
                     config.save();
                 } catch (StorageException e) {
@@ -83,6 +98,7 @@ public final class SettingsDialog extends Dialog<Void> {
                 }
             }
             CardArt.use(config);
+            SoundPlayer.setEnabled(config.soundOn());
             return null;
         });
         preview();

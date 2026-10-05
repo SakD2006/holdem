@@ -1,5 +1,10 @@
 package com.saksham.poker.client.view;
 
+import com.saksham.poker.client.state.Cue;
+import com.saksham.poker.client.util.SoundPlayer;
+import com.saksham.poker.client.util.SoundPlayer.Sound;
+import javafx.animation.PauseTransition;
+import javafx.util.Duration;
 import com.saksham.poker.client.app.RoomSession;
 import com.saksham.poker.client.state.RoomState;
 import com.saksham.poker.common.protocol.client.EndRoom;
@@ -81,6 +86,9 @@ public final class TableView extends BorderPane {
         side.getStyleClass().add("side-panel");
         setRight(side);
 
+        // ---- sounds
+        state.onCue(this::sound);
+
         // ---- shortcuts: F, C and R, unless the player is typing in a box
         addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (!(event.getTarget() instanceof TextInputControl) && actions.handleKey(event.getCode())) {
@@ -96,6 +104,24 @@ public final class TableView extends BorderPane {
         state.players().addListener(header);
         state.yourSeatProperty().addListener(header);
         drawHeader();
+    }
+
+    private void sound(Cue cue) {
+        switch (cue) {
+            case DEAL -> SoundPlayer.play(Sound.DEAL);
+            case BOARD -> SoundPlayer.play(Sound.CARD);
+            case CHECK -> SoundPlayer.play(Sound.CHECK);
+            case CHIPS -> SoundPlayer.play(Sound.CHIPS);
+            case FOLD -> SoundPlayer.play(Sound.FOLD);
+            case YOUR_TURN -> SoundPlayer.play(Sound.YOUR_TURN);
+            case YOU_WIN -> {
+                // Held back until the table has shown who won, so the sound does not give it away.
+                PauseTransition wait = new PauseTransition(
+                        Duration.millis(Math.max(1, Motion.winnerDelayMs(state.handsShown()))));
+                wait.setOnFinished(event -> SoundPlayer.play(Sound.WIN));
+                wait.play();
+            }
+        }
     }
 
     /** Asks before doing something that cannot be undone. */

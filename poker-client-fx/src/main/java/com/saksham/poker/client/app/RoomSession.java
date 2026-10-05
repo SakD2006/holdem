@@ -2,6 +2,7 @@ package com.saksham.poker.client.app;
 
 import com.saksham.poker.client.net.GameSocket;
 import com.saksham.poker.client.state.RoomState;
+import com.saksham.poker.client.util.ErrorMessages;
 import com.saksham.poker.common.error.ErrorCode;
 import com.saksham.poker.common.protocol.ClientMessage;
 import com.saksham.poker.common.protocol.ServerMessage;
@@ -103,7 +104,7 @@ public final class RoomSession {
             // The join itself was refused: the room is full or gone, or we are in another room.
             end(refusal.code() == ErrorCode.ROOM_NOT_FOUND && entered
                     ? "The room is no longer open. The server may have been restarted."
-                    : refusal.message());
+                    : ErrorMessages.text(refusal.code(), refusal.message()));
             return;
         }
         state.apply(message);

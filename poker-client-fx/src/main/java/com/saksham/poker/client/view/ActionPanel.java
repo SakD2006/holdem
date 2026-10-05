@@ -1,5 +1,6 @@
 package com.saksham.poker.client.view;
 
+import com.saksham.poker.client.util.ErrorMessages;
 import com.saksham.poker.client.state.RoomState;
 import com.saksham.poker.client.state.SeatViewModel;
 import com.saksham.poker.client.util.Formatters;
@@ -100,7 +101,7 @@ public final class ActionPanel extends HBox {
                 answered = false;
                 refresh();
                 status.getStyleClass().setAll("label", "error");
-                status.setText(error.message());
+                status.setText(ErrorMessages.text(error.code(), error.message()));
                 waiting.setVisible(true);
                 waiting.setManaged(true);
             }

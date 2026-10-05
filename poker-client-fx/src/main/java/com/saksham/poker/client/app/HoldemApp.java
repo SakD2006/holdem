@@ -1,5 +1,6 @@
 package com.saksham.poker.client.app;
 
+import com.saksham.poker.client.util.SoundPlayer;
 import com.saksham.poker.client.view.CardArt;
 import com.saksham.poker.common.exception.StorageException;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ public class HoldemApp extends Application {
         }
         ClientContext context = new ClientContext(config, new SessionStore(folder));
         CardArt.use(config);
+        SoundPlayer.setEnabled(config.soundOn());
         stage.setTitle("Hold'em");
         new SceneRouter(stage, context).start();
         stage.show();

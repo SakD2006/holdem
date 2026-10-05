@@ -474,6 +474,41 @@ class RoomStateTest {
     }
 
     @Test
+    void momentsWorthASoundAreAnnouncedAsTheyHappen() {
+        List<Cue> heard = new java.util.ArrayList<>();
+        state.onCue(heard::add);
+
+        dealAHand();
+        state.apply(new PlayerActed(0, ActionType.CALL, 50, 100, 9_900, false));
+        state.apply(new ActionRequired(1, 2, true, 0, false, true, 200, 9_900, 1_790_000_025_000L));
+        state.apply(new PlayerActed(1, ActionType.CHECK, 0, 100, 9_900, false));
+        state.apply(new StreetDealt("FLOP", Card.parseAll("2c 5d 9h"), Card.parseAll("2c 5d 9h")));
+        state.apply(new PlayerActed(1, ActionType.FOLD, 0, 0, 9_900, false));
+        state.apply(new HandEnded(List.of(new PayoutInfo(0, 0, 200)), Map.of(0, 100L, 1, -100L),
+                Map.of(0, 10_100L, 1, 9_900L)));
+
+        // The chime is for your own turn only: ravi's turn makes no sound.
+        assertThat(heard).containsExactly(Cue.DEAL, Cue.YOUR_TURN, Cue.CHIPS, Cue.CHECK, Cue.BOARD, Cue.FOLD,
+                Cue.YOU_WIN);
+    }
+
+    @Test
+    void losingAHandOrRejoiningMidHandMakesNoSoundOfItsOwn() {
+        dealAHand();
+        List<Cue> heard = new java.util.ArrayList<>();
+        state.onCue(heard::add);
+
+        state.apply(new HandEnded(List.of(new PayoutInfo(0, 1, 200)), Map.of(0, -100L, 1, 100L),
+                Map.of(0, 9_900L, 1, 10_100L)));
+        state.apply(new RoomSnapshot("ABC234", SETTINGS, PLAYING, 1, List.of(ASHA, RAVI, MEERA), null, 1, 0,
+                List.of()));
+
+        assertThat(heard).isEmpty();
+        state.onCue(null); // a screen that has gone away stops listening without breaking anything
+        state.apply(new HandStarted(2, 1, 1, 0, 50, 100, Map.of(0, 9_900L, 1, 10_100L)));
+    }
+
+    @Test
     void handCategoriesAreWrittenAsWords() {
         assertThat(RoomState.handName("HIGH_CARD")).isEqualTo("High card");
         assertThat(RoomState.handName("THREE_OF_A_KIND")).isEqualTo("Three of a kind");

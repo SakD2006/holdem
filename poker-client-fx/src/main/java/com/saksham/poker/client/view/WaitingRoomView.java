@@ -1,5 +1,6 @@
 package com.saksham.poker.client.view;
 
+import com.saksham.poker.client.util.ErrorMessages;
 import com.saksham.poker.client.app.RoomSession;
 import com.saksham.poker.client.state.RoomState;
 import com.saksham.poker.client.util.Formatters;
@@ -83,7 +84,7 @@ public final class WaitingRoomView extends StackPane {
         state.settingsProperty().addListener(redraw);
         state.lastErrorProperty().addListener((property, was, error) -> {
             if (error != null) {
-                Ui.showError(message, error.message());
+                Ui.showError(message, ErrorMessages.text(error.code(), error.message()));
             }
         });
         draw();

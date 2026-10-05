@@ -3,6 +3,8 @@ package com.saksham.poker.client.view;
 import com.saksham.poker.client.app.SceneRouter;
 import com.saksham.poker.client.net.ApiClient;
 import com.saksham.poker.client.net.ServerAddress;
+import com.saksham.poker.client.net.ServerDiscovery;
+import java.util.List;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -17,6 +19,9 @@ public final class ConnectView extends StackPane {
     private final SceneRouter router;
     private final TextField address = new TextField();
     private final Label message = Ui.message();
+    /** The servers "Find server" turned up, when there was more than one to choose from. */
+    private final VBox choices = new VBox(6);
+    private final Button find;
     private final Button test;
     private final Button next;
 
@@ -31,14 +36,19 @@ public final class ConnectView extends StackPane {
 
         test = Ui.button("Test connection", () -> connect(false));
         next = Ui.button("Continue", () -> connect(true), "primary");
-        HBox buttons = new HBox(10, test, next);
+        find = Ui.button("Find server", this::find);
+        HBox buttons = new HBox(10, find, SeatNode.spacer(), test, next);
         buttons.setAlignment(Pos.CENTER_RIGHT);
+        choices.managedProperty().bind(choices.visibleProperty());
+        choices.setVisible(false);
 
         VBox panel = new VBox(16,
                 Ui.label("Hold'em", "title"),
-                Ui.label("Type the address of the computer running the game server. The host can read it "
-                        + "from the server's start-up message.", "muted"),
+                Ui.label("Press Find server to look for the game on your network, or type the address of the "
+                        + "computer running it. The host can read the address from the server's start-up "
+                        + "message.", "muted"),
                 Ui.field("Server address", address),
+                choices,
                 message,
                 buttons);
         panel.getStyleClass().add("panel");
@@ -77,7 +87,46 @@ public final class ConnectView extends StackPane {
         });
     }
 
+    /** Searches the local network and offers whatever answers. */
+    private void find() {
+        busy(true);
+        choices.setVisible(false);
+        Ui.showGood(message, "Looking for servers on your network...");
+        Ui.whenDone(ServerDiscovery.find(), found -> {
+            busy(false);
+            offer(found);
+        }, failure -> {
+            busy(false);
+            Ui.showError(message, failure);
+        });
+    }
+
+    private void offer(List<ServerAddress> found) {
+        if (found.isEmpty()) {
+            Ui.showError(message, "No server answered. Check that the host has started the server and that "
+                    + "this computer is on the same Wi-Fi or network, or type the host's address.");
+            return;
+        }
+        address.setText(found.get(0).display());
+        if (found.size() == 1) {
+            Ui.showGood(message, "Found a server at " + found.get(0).display() + ". Press Continue.");
+            next.requestFocus();
+            return;
+        }
+        // Two games on one network: let the player say which, rather than guess.
+        choices.getChildren().setAll(Ui.label("More than one server answered. Choose yours:", "field-label"));
+        for (ServerAddress server : found) {
+            choices.getChildren().add(Ui.button(server.display(), () -> {
+                address.setText(server.display());
+                connect(false);
+            }, "small"));
+        }
+        choices.setVisible(true);
+        Ui.showGood(message, "Found " + found.size() + " servers.");
+    }
+
     private void busy(boolean busy) {
+        find.setDisable(busy);
         test.setDisable(busy);
         next.setDisable(busy);
         address.setDisable(busy);
