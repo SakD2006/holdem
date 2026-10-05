@@ -204,7 +204,11 @@ to the user's current connection.
 
 4.6 **LAN:** server binds to `0.0.0.0:8080`; on startup it logs
 `Players can connect to: http://192.168.x.x:8080/poker`. `DiscoveryResponder` listens on UDP
-8888 for `HOLDEM_DISCOVER` and replies `HOLDEM_SERVER <ip> 8080`. `docs/LAN-SETUP.md` explains
+8888 for `HOLDEM_DISCOVER` and replies `HOLDEM_SERVER <ip> 8080`. The words of that exchange are
+in `poker-common` (`common.lan.DiscoveryProtocol`). A host machine on several networks answers with
+its address on the network the question came from. The app broadcasts on every network it is on,
+waits 1.5 seconds, and lists each server once. If the UDP port cannot be opened the server still
+starts; players type the address. `docs/LAN-SETUP.md` explains
 Windows Firewall rules for ports 8080 (TCP) and 8888 (UDP) and that everyone must be on the same
 network.
 
@@ -294,6 +298,14 @@ controllers, JSPs in `WEB-INF/views/`, JSTL + EL only, `<c:out>` for user text):
 | `/rooms/{code}` | `RoomResultsServlet` | `room-results.jsp` — players and results of a room |
 | `/hands/{id}` | `HandReplayServlet` | `hand-replay.jsp` — actions street by street |
 
+- The page servlets extend `abstract class PageServlet`, which forwards to the JSP and turns a
+  missing room or hand into the error page (`error.jsp`, status 404).
+- The pages need no login and start no session. A hand replay shows a player's hole cards only if
+  they were shown at the table (`StoredHand.viewFor(-1)`), exactly as another player would see them.
+- `/rooms?code=` (the front page's look-up box) redirects to `/rooms/{code}`.
+- Data for the pages is shaped in `server.web.view` (`CardView`, `RoomLine`, `RoomHandLine`,
+  `HandReplay`), so the JSPs only lay it out.
+
 Filters: `CharsetFilter`, `AuthFilter` (API routes except register/login/ping).
 `AppContextListener` starts the DataSource, migrations, `RoomManager`, executors and discovery,
 and stops them cleanly.
@@ -364,7 +376,7 @@ try-with-resources everywhere; failures raise `StorageException`, logged, never 
 | Concept | Where |
 |---|---|
 | Packages | module/package layouts in §3, §4, §10 |
-| Abstract class | `PlayerAction`, `GameEvent`, `Message`, `RoomCommand`, `SeatController`, `PokerException`, `BaseDao`, `BaseServlet` |
+| Abstract class | `PlayerAction`, `GameEvent`, `Message`, `RoomCommand`, `SeatController`, `PokerException`, `BaseDao`, `BaseServlet`, `PageServlet` |
 | Inheritance | all their subclasses; exception tree below |
 | Polymorphism | `command.execute(room)`, `controller.onActionRequested(req)`, Jackson polymorphic messages, client dispatch per message type, `HandValue.compareTo` |
 | User-defined exceptions | `PokerException` → `GameRuleException` (`InvalidActionException`, `NotYourTurnException`, `InvalidAmountException`), `RoomException` (`RoomNotFoundException`, `RoomFullException`, `RoomClosedException`, `SeatTakenException`, `NotHostException`, `GameAlreadyStartedException`, `NotEnoughPlayersException`, `RebuyNotAllowedException`, `NotInRoomException`, `AlreadyInRoomException`), `AuthException` (`InvalidCredentialsException`, `UsernameTakenException`, `UnauthorizedException`), `ProtocolException`; unchecked `PersistenceException`, `StorageException` — each maps to an `ErrorCode` |
@@ -388,7 +400,7 @@ com.saksham.poker.client
 ├── view   ConnectView, LoginView, HomeView, CreateRoomDialog, JoinRoomDialog, WaitingRoomView,
 │          TableView, ActionPanel, ChatPanel, HandLogPanel, HistoryView, LeaderboardView,
 │          CardNode, ChipStackNode, SeatNode, TimerRing
-└── util   Formatters, SoundPlayer, HandHistoryExporter
+└── util   Formatters, SoundPlayer, ErrorMessages, HandHistoryExporter
 ```
 
 Screens:
