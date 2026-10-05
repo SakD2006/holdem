@@ -62,6 +62,8 @@
           run.sh, run.bat      pick the right platform folder and start the app
         JavaFX jars for different platforms can't share one folder: the two macOS builds use the
         same native library names.
+        The "m2e ignore" marks stop editors (Eclipse, VS Code) from running these steps on every
+        save; they only make sense in a full command-line build, after the other modules are packaged.
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -75,6 +77,7 @@
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>
           <execution>
+            <?m2e ignore?>
             <id>dist-libs</id>
             <phase>package</phase>
             <goals>
@@ -87,6 +90,7 @@
             </configuration>
           </execution>
           <execution>
+            <?m2e ignore?>
             <id>dist-javafx-win</id>
             <phase>package</phase>
             <goals>
@@ -103,6 +107,7 @@
             </configuration>
           </execution>
           <execution>
+            <?m2e ignore?>
             <id>dist-javafx-mac</id>
             <phase>package</phase>
             <goals>
@@ -119,6 +124,7 @@
             </configuration>
           </execution>
           <execution>
+            <?m2e ignore?>
             <id>dist-javafx-mac-aarch64</id>
             <phase>package</phase>
             <goals>
@@ -135,6 +141,7 @@
             </configuration>
           </execution>
           <execution>
+            <?m2e ignore?>
             <id>dist-javafx-linux</id>
             <phase>package</phase>
             <goals>
@@ -157,6 +164,7 @@
         <artifactId>maven-resources-plugin</artifactId>
         <executions>
           <execution>
+            <?m2e ignore?>
             <id>dist-scripts</id>
             <phase>package</phase>
             <goals>
