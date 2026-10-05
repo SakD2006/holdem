@@ -30,7 +30,8 @@ public final class HomeView extends StackPane {
         leaderboard.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(history, javafx.scene.layout.Priority.ALWAYS);
         HBox.setHgrow(leaderboard, javafx.scene.layout.Priority.ALWAYS);
-        HBox footer = new HBox(Ui.button("Log out", this::logOut, "link"));
+        HBox footer = new HBox(18, Ui.button("Settings", this::settings, "link"),
+                Ui.button("Log out", this::logOut, "link"));
         footer.setAlignment(Pos.CENTER_RIGHT);
 
         VBox panel = new VBox(16,
@@ -69,6 +70,10 @@ public final class HomeView extends StackPane {
 
     private void joinRoom() {
         new JoinRoomDialog(router.context()).showAndWait().ifPresent(router::enterRoom);
+    }
+
+    private void settings() {
+        new SettingsDialog(router.context().config()).showAndWait();
     }
 
     private void logOut() {

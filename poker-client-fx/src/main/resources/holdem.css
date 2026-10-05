@@ -302,20 +302,29 @@
     -fx-border-color: transparent transparent -hd-panel-edge transparent;
 }
 
+.rail {
+    -fx-fill: linear-gradient(to bottom, #5a3a22 0%, #3a2414 55%, #23150b 100%);
+    -fx-stroke: #140c06;
+    -fx-stroke-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 30, 0.15, 0, 10);
+}
+
 .felt {
-    -fx-fill: radial-gradient(center 50% 45%, radius 70%, #1f6b4d 0%, #17533c 55%, #0f3a2a 100%);
-    -fx-stroke: #2c1d12;
-    -fx-stroke-width: 14;
+    -fx-fill: radial-gradient(center 50% 42%, radius 75%, #237a57 0%, #1a5f44 50%, #0f3d2c 100%);
+    -fx-stroke: rgba(0, 0, 0, 0.55);
+    -fx-stroke-width: 3;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.55), 26, 0.1, 0, 4);
 }
 
 .felt-line {
     -fx-fill: transparent;
-    -fx-stroke: rgba(243, 236, 217, 0.13);
+    -fx-stroke: rgba(243, 236, 217, 0.16);
     -fx-stroke-width: 1.5;
+    -fx-stroke-dash-array: 2 7;
 }
 
 .seat-plate {
-    -fx-background-color: #0b1814;
+    -fx-background-color: linear-gradient(to bottom, #12241e, #0a1612);
     -fx-background-radius: 12;
     -fx-border-color: -hd-panel-edge;
     -fx-border-radius: 12;
@@ -324,17 +333,20 @@
     -fx-alignment: center;
     -fx-min-width: 140;
     -fx-max-width: 140;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 10, 0.1, 0, 3);
 }
 
 .seat-plate.turn {
     -fx-border-color: -hd-gold;
     -fx-border-width: 2.5;
+    -fx-effect: dropshadow(gaussian, rgba(217, 180, 74, 0.7), 20, 0.2, 0, 0);
 }
 
 .seat-plate.winner {
     -fx-border-color: -hd-good;
     -fx-border-width: 2.5;
     -fx-background-color: #123324;
+    -fx-effect: dropshadow(gaussian, rgba(143, 209, 158, 0.85), 28, 0.25, 0, 0);
 }
 
 .seat-plate.empty {
@@ -472,4 +484,27 @@
     -fx-font-size: 12px;
     -fx-padding: 2 4;
     -fx-text-fill: #cfd9d2;
+}
+
+/* ---- settings */
+
+.back-choice {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 8;
+    -fx-text-fill: -hd-ivory;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+
+.back-choice:hover {
+    -fx-background-color: rgba(243, 236, 217, 0.06);
+}
+
+.back-choice:selected {
+    -fx-border-color: -hd-gold;
+    -fx-background-color: rgba(217, 180, 74, 0.1);
 }

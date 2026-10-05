@@ -72,6 +72,9 @@ public final class ViewGallery {
             }
         });
         done.await();
+        if (failure[0] == null) {
+            film(out, home, failure);
+        }
         if (args.length > 1 && failure[0] == null) {
             liveScreens(out, home, args[1], failure);
         }
@@ -82,6 +85,116 @@ public final class ViewGallery {
         }
         System.out.println("Pictures written to " + out.toAbsolutePath());
         System.exit(0);
+    }
+
+    /**
+     * A hand filmed as it is played, with movement switched on: the deal, the flop and a showdown,
+     * each caught at several moments. Still pictures cannot show movement, but a card caught half
+     * way across the table, or half turned over, shows that it is happening.
+     */
+    private static void film(Path out, Path home, Throwable[] failure) throws Exception {
+        CountDownLatch finished = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                Motion.enabled = true;
+                ClientContext context = new ClientContext(AppConfig.load(home), new SessionStore(home));
+                context.useServer(ServerAddress.parse("192.168.1.20"));
+                context.loggedIn(new AuthResponse("t".repeat(64), new UserInfo(1, "asha")), false);
+                RoomSession session = new RoomSession(context, "ABC234", () -> { }, reason -> { });
+                var state = session.state();
+                state.apply(new RoomSnapshot("ABC234", SETTINGS, RoomState.PLAYING, 1, List.of(
+                        new PlayerInfo(1, "asha", 0, 10_000, false, true),
+                        new PlayerInfo(2, "ravi", 1, 8_450, false, true),
+                        new PlayerInfo(3, "meera", 2, 12_300, false, true),
+                        new PlayerInfo(4, "dev", 4, 3_200, false, true)), null, 1, 0, List.of()));
+                Scene scene = new Scene(new StackPane(new TableView(session)), 1100, 720);
+                scene.getStylesheets().add(ViewGallery.class.getResource("/holdem.css").toExternalForm());
+                Stage stage = new Stage();
+                stage.setScene(scene);
+                stage.show();
+
+                java.util.List<Object[]> script = new java.util.ArrayList<>();
+                // The deal.
+                script.add(new Object[] {400L, (Runnable) () -> {
+                    state.apply(new HandStarted(12, 4, 0, 1, 50, 100,
+                            Map.of(0, 10_000L, 1, 8_450L, 2, 12_300L, 4, 3_200L)));
+                    state.apply(new BlindPosted(0, 50, false, false));
+                    state.apply(new BlindPosted(1, 100, true, false));
+                    state.apply(new HoleCards(0, Card.parseAll("Ah Kd")));
+                }});
+                script.add(new Object[] {170L, "film-1-deal-a"});
+                script.add(new Object[] {260L, "film-1-deal-b"});
+                script.add(new Object[] {330L, "film-1-deal-c"});
+                script.add(new Object[] {700L, "film-1-deal-d"});
+                // Everyone calls, then the flop.
+                script.add(new Object[] {100L, (Runnable) () -> {
+                    state.apply(new PlayerActed(2, ActionType.CALL, 100, 100, 12_200, false));
+                    state.apply(new PlayerActed(4, ActionType.FOLD, 0, 0, 3_200, false));
+                    state.apply(new PlayerActed(0, ActionType.CALL, 50, 100, 9_900, false));
+                    state.apply(new PlayerActed(1, ActionType.CHECK, 0, 100, 8_350, false));
+                }});
+                script.add(new Object[] {110L, "film-2-fold"});
+                script.add(new Object[] {400L, (Runnable) () -> {
+                    state.apply(new PotsUpdated(List.of(new PotInfo(300, List.of(0, 1, 2)))));
+                    state.apply(new StreetDealt("FLOP", Card.parseAll("As 7h 2c"), Card.parseAll("As 7h 2c")));
+                }});
+                script.add(new Object[] {150L, "film-3-flop-a"});
+                script.add(new Object[] {230L, "film-3-flop-b"});
+                script.add(new Object[] {200L, "film-3-flop-c"});
+                script.add(new Object[] {600L, "film-3-flop-d"});
+                // Straight to showdown.
+                script.add(new Object[] {100L, (Runnable) () -> {
+                    state.apply(new StreetDealt("TURN", Card.parseAll("9d"), Card.parseAll("As 7h 2c 9d")));
+                    state.apply(new StreetDealt("RIVER", Card.parseAll("Kc"), Card.parseAll("As 7h 2c 9d Kc")));
+                }});
+                script.add(new Object[] {900L, (Runnable) () -> {
+                    state.apply(new Showdown(List.of(new ShownHandInfo(1, Card.parseAll("7s 8s"), "PAIR"),
+                            new ShownHandInfo(2, Card.parseAll("Qs Qh"), "PAIR"),
+                            new ShownHandInfo(0, Card.parseAll("Ah Kd"), "TWO_PAIR"))));
+                    state.apply(new HandEnded(List.of(new PayoutInfo(0, 0, 300)),
+                            Map.of(0, 200L, 1, -100L, 2, -100L, 4, 0L),
+                            Map.of(0, 10_200L, 1, 8_350L, 2, 12_200L, 4, 3_200L)));
+                }});
+                script.add(new Object[] {200L, "film-4-show-a"});
+                script.add(new Object[] {420L, "film-4-show-b"});
+                script.add(new Object[] {500L, "film-4-show-c"});
+                script.add(new Object[] {600L, "film-4-show-d"});
+                script.add(new Object[] {500L, "film-4-show-e"});
+                play(script, 0, scene, out, failure, () -> {
+                    stage.close();
+                    finished.countDown();
+                });
+            } catch (Throwable e) {
+                failure[0] = e;
+                finished.countDown();
+            }
+        });
+        finished.await();
+    }
+
+    /** Runs the steps of a film one after another, each after its wait. */
+    private static void play(java.util.List<Object[]> script, int index, Scene scene, Path out, Throwable[] failure,
+            Runnable whenDone) {
+        if (index >= script.size() || failure[0] != null) {
+            whenDone.run();
+            return;
+        }
+        Object[] step = script.get(index);
+        javafx.animation.PauseTransition wait = new javafx.animation.PauseTransition(
+                javafx.util.Duration.millis((Long) step[0]));
+        wait.setOnFinished(event -> {
+            try {
+                if (step[1] instanceof Runnable action) {
+                    action.run();
+                } else {
+                    write(out, (String) step[1], scene.snapshot(null));
+                }
+            } catch (Throwable e) {
+                failure[0] = e;
+            }
+            play(script, index + 1, scene, out, failure, whenDone);
+        });
+        wait.play();
     }
 
     /**
@@ -134,6 +247,7 @@ public final class ViewGallery {
         save(out, "3-home-notice", new HomeView(router, "The room has closed."));
 
         save(out, "4-create-room", new CreateRoomDialog("asha").getDialogPane());
+        save(out, "4-settings", new SettingsDialog(context.config(), home).getDialogPane());
         save(out, "5-join-room", new JoinRoomDialog(context).getDialogPane());
 
         // The waiting room as the host, with three seated, one standing and one offline.
@@ -154,8 +268,36 @@ public final class ViewGallery {
         guest.state().apply(new ErrorMessage(ErrorCode.SEAT_TAKEN, "Seat 1 is taken. Choose another seat."));
         save(out, "6-waiting-guest", guestView);
 
-        TableSurface.animate = false;
+        Motion.enabled = false;
+        cards(out, home);
         table(out, context);
+    }
+
+    /** Every back design, and a spread of faces at the two sizes used at the table. */
+    private static void cards(Path out, Path home) throws Exception {
+        javafx.scene.layout.VBox sheet = new javafx.scene.layout.VBox(22);
+        sheet.setStyle("-fx-background-color: #17533c; -fx-padding: 30;");
+        javafx.scene.layout.HBox backs = new javafx.scene.layout.HBox(18);
+        for (CardArt.Back back : CardArt.Back.values()) {
+            if (back != CardArt.Back.CUSTOM) {
+                CardArt.use(back, false, home);
+                backs.getChildren().addAll(new CardNode(null, 96), new CardNode(null, 44));
+            }
+        }
+        sheet.getChildren().add(backs);
+        String spread = "As Kh Qd Jc Ts 9h 7d 2c";
+        for (boolean fourColour : new boolean[] {false, true}) {
+            CardArt.use(CardArt.Back.CRIMSON, fourColour, home);
+            for (double width : new double[] {96, 64, 44}) {
+                javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(12);
+                for (Card card : Card.parseAll(spread)) {
+                    row.getChildren().add(new CardNode(card, width));
+                }
+                sheet.getChildren().add(row);
+            }
+        }
+        CardArt.use(CardArt.Back.CRIMSON, false, home);
+        save(out, "0-cards", sheet);
     }
 
     private static final RoomSettingsInfo NINE = new RoomSettingsInfo("Friday game", 9, 50, 100, 10_000, 25, true);
@@ -283,7 +425,10 @@ public final class ViewGallery {
     private static void save(Path folder, String name, Parent screen) throws Exception {
         Scene scene = new Scene(new StackPane(screen), 1100, 720);
         scene.getStylesheets().add(ViewGallery.class.getResource("/holdem.css").toExternalForm());
-        WritableImage image = scene.snapshot(null);
+        write(folder, name, scene.snapshot(null));
+    }
+
+    private static void write(Path folder, String name, WritableImage image) throws Exception {
         int width = (int) image.getWidth();
         int height = (int) image.getHeight();
         BufferedImage buffered = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);

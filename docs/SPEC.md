@@ -415,7 +415,17 @@ server's deadline, capped at one full turn. The quick sizes are: min, half pot, 
 where a pot-sized raise is the call plus what the pot would then hold. A second click on an action
 button sends nothing; a refused action re-opens the buttons with the reason shown.
 
-Cards and chips drawn with JavaFX shapes (no image assets). Network events → `Platform.runLater`;
+Cards and chips drawn with JavaFX shapes (no image assets shipped). A player may supply their own:
+`~/.holdem/card-back.png` (or `.jpg`) for the back, chosen from Settings, and `~/.holdem/cards/Ah.png`
+and so on for individual faces; a card without a picture keeps its drawn face. Settings also offers
+four drawn back designs and a four-colour deck.
+
+**Movement.** Hole cards are dealt from the middle of the table in deal order and yours turn face
+up; community cards arrive face down and turn over one at a time; a street's bets slide into the
+pot; folded hands slide away. At showdown hands are turned over in the order the server gives,
+and only then is the winner lit up, the pot sent to them and their new stack shown, so the screen
+never gives the result away before the cards. A reconnect or a late join shows everything in
+place without replaying it. All timings are in `Motion`. Network events → `Platform.runLater`;
 HTTP calls off the UI thread (`Task`/`CompletableFuture`). On disconnect: "Reconnecting…"
 overlay, retry every 2 s, rejoin room, apply `ROOM_SNAPSHOT`. The app does not retry when
 another login replaced it (close 4000) or its token expired (4401), and if the room is gone when
