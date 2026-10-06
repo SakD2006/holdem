@@ -11,7 +11,9 @@ import com.saksham.poker.common.error.ErrorCode;
 import com.saksham.poker.common.exception.ProtocolException;
 import com.saksham.poker.common.protocol.client.EndRoom;
 import com.saksham.poker.common.protocol.client.JoinRoom;
+import com.saksham.poker.common.protocol.client.AddBot;
 import com.saksham.poker.common.protocol.client.Kick;
+import com.saksham.poker.common.protocol.dto.BotLevel;
 import com.saksham.poker.common.protocol.client.LeaveRoom;
 import com.saksham.poker.common.protocol.client.PauseGame;
 import com.saksham.poker.common.protocol.client.Ping;
@@ -79,6 +81,7 @@ class MessageCodecTest {
                 new PauseGame(),
                 new ResumeGame(),
                 new Kick(17),
+                new AddBot(BotLevel.EASY),
                 new EndRoom(),
                 new SubmitAction(41, ActionType.RAISE, 300),
                 new SitOut(),

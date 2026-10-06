@@ -62,6 +62,24 @@ class ServerConfigTest {
     }
 
     @Test
+    void botsPauseBeforeActingUnlessToldNotTo() {
+        ServerConfig defaults = new ServerConfig(new Properties());
+        assertThat(defaults.botThinkMinMs()).isEqualTo(800);
+        assertThat(defaults.botThinkMaxMs()).isEqualTo(2_500);
+
+        Properties instant = new Properties();
+        instant.setProperty("bot.think.min.ms", "0");
+        instant.setProperty("bot.think.max.ms", "0");
+        assertThat(new ServerConfig(instant).botThinkMaxMs()).isZero();
+
+        // A longest pause shorter than the shortest makes no sense: the shortest wins.
+        Properties muddled = new Properties();
+        muddled.setProperty("bot.think.min.ms", "1000");
+        muddled.setProperty("bot.think.max.ms", "200");
+        assertThat(new ServerConfig(muddled).botThinkMaxMs()).isEqualTo(1_000);
+    }
+
+    @Test
     void aNumberThatIsNotANumberOrIsOutOfRangeIsRefusedByName() {
         Properties text = new Properties();
         text.setProperty("http.port", "eighty");

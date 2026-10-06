@@ -37,6 +37,10 @@
       <groupId>com.saksham.poker</groupId>
       <artifactId>poker-engine</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.saksham.poker</groupId>
+      <artifactId>poker-ai</artifactId>
+    </dependency>
 
     <!-- Supplied by Tomcat at runtime. -->
     <dependency>

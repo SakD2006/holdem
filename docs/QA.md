@@ -198,3 +198,21 @@ Use a browser on a device that is **not** the host: a phone on the same Wi-Fi is
       project. Without help, they get from nothing to seated at the table.
 - [ ] Note anything they had to ask, and fix the guide.
 
+## 15. Bots
+
+- [ ] In the waiting room, as host, press **Add bot**: a player named like `Ada_bot` appears in the
+      first free seat with a "Bot" badge. Other players see it too.
+- [ ] A player who is not the host has no **Add bot** button.
+- [ ] Fill every seat with bots: **Add bot** greys out.
+- [ ] **Remove** on a bot's seat sends it away.
+- [ ] Start a game with only you and bots. The bots act after a second or two, never instantly and
+      never running the clock down.
+- [ ] Over twenty hands the bots fold, check, call, bet and raise; they do not all do the same thing.
+- [ ] A bot that loses all its chips buys back in and is dealt in again a hand or two later.
+- [ ] During the game, press **Add bot** at the table (with a free seat): the bot sits and joins
+      after waiting for the big blind.
+- [ ] Leave the room while only bots remain: the room closes (create a new room with the same bots'
+      names appearing again shows their accounts were freed).
+- [ ] Bots appear on the leaderboard and in hand history like any player.
+- [ ] Nobody can log in as a bot: try `Ada_bot` with any password.
+

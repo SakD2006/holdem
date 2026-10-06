@@ -36,6 +36,8 @@ public final class ServerConfig {
     private final int discoveryPort;
     private final Duration tokenLifetime;
     private final RoomTimings roomTimings;
+    private final int botThinkMinMs;
+    private final int botThinkMaxMs;
 
     /** Builds the settings from properties, using the default for anything missing. */
     public ServerConfig(Properties properties) {
@@ -52,6 +54,8 @@ public final class ServerConfig {
                 number(properties, "runout.pause.ms", 1_000, 0, 10_000),
                 number(properties, "reconnect.grace.seconds", 60, 0, 3_600) * 1_000L,
                 number(properties, "room.idle.minutes", 30, 1, 24 * 60) * 60_000L);
+        this.botThinkMinMs = number(properties, "bot.think.min.ms", 800, 0, 60_000);
+        this.botThinkMaxMs = Math.max(botThinkMinMs, number(properties, "bot.think.max.ms", 2_500, 0, 60_000));
     }
 
     /**
@@ -135,6 +139,16 @@ public final class ServerConfig {
     /** The folder the server writes its files under: logs, hand histories and unsaved hands. */
     public Path dataFolder() {
         return Path.of(System.getProperty(DATA_PROPERTY, "data"));
+    }
+
+    /** The shortest pause a computer player takes before acting, in milliseconds. */
+    public int botThinkMinMs() {
+        return botThinkMinMs;
+    }
+
+    /** The longest pause a computer player takes before acting; never less than the shortest. */
+    public int botThinkMaxMs() {
+        return botThinkMaxMs;
     }
 
     /** The waits rooms use between hands, during run-outs and after a disconnect. */

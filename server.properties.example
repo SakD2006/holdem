@@ -28,3 +28,8 @@ runout.pause.ms=1000
 reconnect.grace.seconds=60
 # A room with nobody connected for this many minutes closes.
 room.idle.minutes=30
+
+# Computer players pause this long before acting, so a person can follow the game: a random time
+# between the two, in milliseconds. 0 and 0 makes them act at once.
+bot.think.min.ms=800
+bot.think.max.ms=2500

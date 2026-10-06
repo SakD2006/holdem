@@ -243,7 +243,50 @@ the JSP leaderboard and replays show the demo's hands from any browser on the LA
 
 ---
 
-## Later — AI agents (separate plan)
+## Phase 9 — Bots at the table: plumbing and a rule-based player (§13)
 
-`AiController extends SeatController`, "add bot to seat" for the host, rule-based → Monte Carlo
-→ smarter agents. Phases 0–8 shouldn't need changes for it.
+**Concepts:** abstract class + polymorphism (`BotStrategy`, `AiController extends SeatController`),
+multithreading (bot-thinker threads), JDBC (bot accounts), collections.
+
+- [x] New module `poker-ai`: `TableObserver`, `Observation`, `Decision`, `BotStrategy`,
+      `RuleBasedStrategy`, `HandStrength`.
+- [x] `AiController` in the server; bots think off the room's thread and pause before acting.
+- [x] `ADD_BOT` message, `BotService`, bot accounts (migration V3), `PlayerInfo.bot`.
+- [x] Room rules for bots: host adds and removes them, never host, room closes with only bots left.
+- [x] App: **Add bot** button in the waiting room and at the table, "Bot" badge on the seat.
+- [x] Tests: strategy is always legal over 40,000 random spots; five bots and a player play 400
+      hands on real threads with no refusal and chips conserved.
+
+**Done when:** a host adds bots from the app and plays a full game against them.
+
+> Checked: tests, and a live run over the network (bots added, 160 hands, one removed mid-game,
+> every hand saved, chips summing to zero). **Not yet done:** clicking **Add bot** in the real app
+> window and playing a session by hand.
+
+**You'll have:** an Add bot button; easy-level bots you can play against alone.
+
+## Phase 10 — Simulation bot and an arena
+
+- [ ] Equity by Monte Carlo: play out thousands of finishes against random opposing hands.
+- [ ] `MonteCarloStrategy` (medium level), sized bets, position.
+- [ ] Arena: bots play tens of thousands of hands against each other without a server, and a
+      results table shows who wins and by how many big blinds per 100 hands.
+
+**You'll have:** a medium bot, and a way to measure any bot's strength with numbers.
+
+## Phase 11 — Opponent tracking
+
+- [ ] Per-opponent statistics from what is shown at the table (how often they enter a pot, raise,
+      fold to a bet, reach showdown).
+- [ ] The bot adjusts: bluffs players who fold too much, value-bets players who call too much.
+
+**You'll have:** a bot that plays differently against each person.
+
+## Phase 12 — Self-play training
+
+- [ ] Abstraction: group similar hands, allow a few bet sizes.
+- [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
+- [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
+- [ ] Arena results for every level against every other.
+
+**You'll have:** a hard bot whose baseline was learned by playing itself, with numbers to show for it.

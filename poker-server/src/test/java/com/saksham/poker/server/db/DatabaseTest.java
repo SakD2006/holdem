@@ -10,9 +10,11 @@ import com.saksham.poker.common.api.HandSummary;
 import com.saksham.poker.common.api.LeaderboardEntry;
 import com.saksham.poker.common.api.RoomPreview;
 import com.saksham.poker.common.card.Card;
+import com.saksham.poker.common.exception.InvalidCredentialsException;
 import com.saksham.poker.common.exception.RoomNotFoundException;
 import com.saksham.poker.common.exception.UnauthorizedException;
 import com.saksham.poker.common.exception.UsernameTakenException;
+import com.saksham.poker.common.protocol.dto.BotLevel;
 import com.saksham.poker.common.protocol.dto.RoomState;
 import com.saksham.poker.engine.card.SecureDeckFactory;
 import com.saksham.poker.server.auth.PasswordHasher;
@@ -56,7 +58,7 @@ class DatabaseTest {
     @BeforeAll
     static void createSchema() throws Exception {
         database = new TestDatabase();
-        assertThat(new MigrationRunner(database.dataSource()).migrate()).isEqualTo(2);
+        assertThat(new MigrationRunner(database.dataSource()).migrate()).isEqualTo(3);
         users = new UserDao(database.dataSource());
         tokens = new AuthTokenDao(database.dataSource());
         rooms = new RoomDao(database.dataSource());
@@ -400,6 +402,29 @@ class DatabaseTest {
 
         assertThat(rooms.recent(2)).extracting(RoomRecord::code).containsExactly("REC235", "REC234");
         assertThat(rooms.recent(1)).hasSize(1);
+    }
+
+    @Test
+    void aBotAccountIsCreatedOnceListedByLevelAndCanNeverBeLoggedInto() throws Exception {
+        BotAccountDao bots = new BotAccountDao(database.dataSource());
+        users.create("Gauss_bot", "a persons hash"); // a person got to this name first
+
+        BotAccount ada = bots.create("Ada_bot", BotLevel.EASY).orElseThrow();
+
+        assertThat(ada.username()).isEqualTo("Ada_bot");
+        assertThat(ada.level()).isEqualTo(BotLevel.EASY);
+        assertThat(bots.create("Ada_bot", BotLevel.EASY)).as("the name is taken").isEmpty();
+        assertThat(bots.create("ada_BOT", BotLevel.EASY)).as("in any case").isEmpty();
+        assertThat(bots.create("Gauss_bot", BotLevel.EASY)).as("taken by a person").isEmpty();
+        assertThat(bots.findByLevel(BotLevel.EASY)).extracting(BotAccount::username).containsExactly("Ada_bot");
+        // It is an ordinary user as far as hands are concerned...
+        assertThat(users.findById(ada.id())).isPresent();
+        // ...but no password opens it.
+        SessionService sessions = new SessionService(users, tokens, new PasswordHasher(1_000), Clock.systemUTC(),
+                Duration.ofDays(7));
+        for (String guess : List.of("", "bot", BotAccountDao.NO_LOGIN, "password")) {
+            assertThatThrownBy(() -> sessions.login("Ada_bot", guess)).isInstanceOf(InvalidCredentialsException.class);
+        }
     }
 
     @Test

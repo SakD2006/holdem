@@ -1,6 +1,7 @@
 package com.saksham.poker.common.protocol;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.saksham.poker.common.protocol.client.AddBot;
 import com.saksham.poker.common.protocol.client.EndRoom;
 import com.saksham.poker.common.protocol.client.JoinRoom;
 import com.saksham.poker.common.protocol.client.Kick;
@@ -26,6 +27,7 @@ import com.saksham.poker.common.protocol.client.TakeSeat;
     @JsonSubTypes.Type(PauseGame.class),
     @JsonSubTypes.Type(ResumeGame.class),
     @JsonSubTypes.Type(Kick.class),
+    @JsonSubTypes.Type(AddBot.class),
     @JsonSubTypes.Type(EndRoom.class),
     @JsonSubTypes.Type(SubmitAction.class),
     @JsonSubTypes.Type(SitOut.class),

@@ -5,6 +5,7 @@ import com.saksham.poker.server.auth.SessionService;
 import com.saksham.poker.server.db.HandDao;
 import com.saksham.poker.server.db.RoomDao;
 import com.saksham.poker.server.io.ServerConfig;
+import com.saksham.poker.server.player.BotService;
 import com.saksham.poker.server.room.RoomManager;
 import com.saksham.poker.server.room.RoomService;
 import com.saksham.poker.server.ws.ConnectionRegistry;
@@ -21,10 +22,11 @@ import jakarta.servlet.ServletContext;
  * @param hands finished hands, for history, replays and the leaderboard
  * @param roomRecords what the database remembers of every room, open or closed
  * @param connections the open game connection of each user
+ * @param bots seats computer players when a host asks
  * @param codec reads and writes game messages
  */
 public record AppContext(ServerConfig config, SessionService sessions, RoomService rooms,
-        RoomManager roomManager, HandDao hands, RoomDao roomRecords, ConnectionRegistry connections, MessageCodec codec) {
+        RoomManager roomManager, HandDao hands, RoomDao roomRecords, ConnectionRegistry connections, BotService bots, MessageCodec codec) {
 
     public static final String SERVER_NAME = "Hold'em";
     public static final String SERVER_VERSION = "0.1.0";

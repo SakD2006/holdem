@@ -12,8 +12,9 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - Getting a group playing, step by step: [docs/LAN-SETUP.md](docs/LAN-SETUP.md)
 - Hands-on checklist before a demo: [docs/QA.md](docs/QA.md)
 
-**Status:** all eight phases are built. What is left is testing by hand on several computers
-(`docs/QA.md`).
+**Status:** the game is complete (phases 0 to 8). Computer players are being added: the host can
+seat easy-level bots from the app (phase 9), and stronger ones are planned (`docs/PLAN.md`). Still
+to do: testing by hand on several computers (`docs/QA.md`).
 
 ## What it looks like
 
@@ -46,7 +47,9 @@ The server's web pages, open to any browser on the network:
   a leaderboard; the server has the same as web pages.
 - **Look good.** Cards are dealt, turned over and mucked with movement; chips fly to the pot.
   Four card backs, a four-colour deck, your own pictures for the cards, and sounds you can turn off.
-- **Test alone.** Bots join a room like people, so one person can try a full table.
+- **Play alone.** The host presses **Add bot** to seat computer players, which know only what a
+  person in their seat would see.
+- **Test alone.** Separate network test bots join a room like people, for long unattended runs.
 
 ## Modules
 
@@ -54,6 +57,7 @@ The server's web pages, open to any browser on the network:
 |---|---|
 | `poker-common` | Cards, actions, protocol messages, error codes, exceptions |
 | `poker-engine` | Pure Hold'em rules: betting, pots, hand evaluator. No I/O, no threads |
+| `poker-ai` | Computer players: what a bot sees of a hand and how it chooses its action |
 | `poker-server` | Runs on the host machine in Tomcat 10.1: JSON API, WebSocket game, rooms, JDBC, JSP pages |
 | `poker-client-fx` | JavaFX desktop app |
 | `poker-bot-client` | Headless test bots that join a room like a human |

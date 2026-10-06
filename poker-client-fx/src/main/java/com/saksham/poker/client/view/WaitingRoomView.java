@@ -4,10 +4,12 @@ import com.saksham.poker.client.util.ErrorMessages;
 import com.saksham.poker.client.app.RoomSession;
 import com.saksham.poker.client.state.RoomState;
 import com.saksham.poker.client.util.Formatters;
+import com.saksham.poker.common.protocol.client.AddBot;
 import com.saksham.poker.common.protocol.client.EndRoom;
 import com.saksham.poker.common.protocol.client.Kick;
 import com.saksham.poker.common.protocol.client.StartGame;
 import com.saksham.poker.common.protocol.client.TakeSeat;
+import com.saksham.poker.common.protocol.dto.BotLevel;
 import com.saksham.poker.common.protocol.dto.PlayerInfo;
 import com.saksham.poker.common.protocol.dto.RoomSettingsInfo;
 import java.util.StringJoiner;
@@ -40,6 +42,7 @@ public final class WaitingRoomView extends StackPane {
     private final Label standing = Ui.label("", "muted");
     private final Label status = Ui.label("", "muted");
     private final Label message = Ui.message();
+    private final Button addBot;
     private final Button start;
     private final Button end;
 
@@ -54,9 +57,11 @@ public final class WaitingRoomView extends StackPane {
 
         start = Ui.button("Start game", () -> session.send(new StartGame()), "primary");
         end = Ui.button("End room", () -> session.send(new EndRoom()), "danger");
+        // The server seats the bot in the first free seat.
+        addBot = Ui.button("Add bot", () -> session.send(new AddBot(BotLevel.EASY)));
         Region gap = new Region();
         HBox.setHgrow(gap, Priority.ALWAYS);
-        HBox buttons = new HBox(10, Ui.button("Leave room", session::leave), gap, end, start);
+        HBox buttons = new HBox(10, Ui.button("Leave room", session::leave), gap, addBot, end, start);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
         VBox panel = new VBox(14,
@@ -122,10 +127,13 @@ public final class WaitingRoomView extends StackPane {
         end.setVisible(host);
         end.setManaged(host);
         start.setDisable(seated < 2);
+        addBot.setVisible(host);
+        addBot.setManaged(host);
+        addBot.setDisable(state.players().size() >= settings.maxPlayers());
         PlayerInfo hostPlayer = state.player(state.hostUserIdProperty().get());
         if (host) {
             status.setText(seated < 2
-                    ? "You are the host. The game can start once 2 players are seated."
+                    ? "You are the host. The game can start once 2 players are seated. To play alone, add a bot."
                     : "You are the host. Start the game when everyone is ready.");
         } else {
             status.setText("Waiting for " + (hostPlayer == null ? "the host" : hostPlayer.username())
@@ -163,6 +171,9 @@ public final class WaitingRoomView extends StackPane {
         }
         if (occupant.userId() == state.hostUserIdProperty().get()) {
             badges.getChildren().add(Ui.label("Host", "badge", "quiet"));
+        }
+        if (occupant.bot()) {
+            badges.getChildren().add(Ui.label("Bot", "badge", "quiet"));
         }
         if (!occupant.connected()) {
             badges.getChildren().add(Ui.label("Offline", "badge", "quiet"));

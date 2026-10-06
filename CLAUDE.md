@@ -10,20 +10,21 @@ JavaFX desktop app, enters the host machine's IP, logs in, and either **creates 
 6-character room code) or **joins a room with a code**. The room creator starts the game.
 
 Keep it basic. No cloud hosting, no deployment, no internet features, no installers.
-Texas Hold'em ONLY. AI agents come later — build only the seam described below.
+Texas Hold'em ONLY. Computer players (bots) are being added in phases 9 to 12: SPEC §13.
 
 ## Architecture (do not change without asking)
 
 ```
 poker-common      cards, actions, protocol messages, error codes, exceptions (no I/O)
 poker-engine      pure Hold'em rules: hand state machine, betting, pots, evaluator (no I/O, no threads)
+poker-ai          computer players: what a bot sees and how it chooses (no I/O, no threads)
 poker-server      runs on the host machine via Tomcat 10.1: JSON API servlets, WebSocket game
                   endpoint, rooms, JDBC, hand-history files, a few JSP pages
 poker-client-fx   JavaFX desktop app: connect, login/register, create/join room, play
 poker-bot-client  headless test bots that join a room like a human (testing alone; future AI host)
 ```
 
-Dependencies: `common ← engine ← server`, `common ← client-fx`, `common ← bot-client`.
+Dependencies: `common ← engine ← ai ← server`, `common ← client-fx`, `common ← bot-client`.
 The engine never depends on server, database, files, sockets or JavaFX.
 
 ## Golden rules
@@ -38,8 +39,9 @@ The engine never depends on server, database, files, sockets or JavaFX.
 5. **Chips are `long`** and are conserved every hand.
 6. **All SQL via `PreparedStatement`** inside DAOs.
 7. **WebSocket sends go through `Connection.send`** (per-connection outbound queue).
-8. **AI seam:** rooms talk only to `abstract class SeatController`. Only
-   `RemoteHumanController` exists now.
+8. **Bots know only what a person would.** Rooms talk only to `abstract class SeatController`;
+   `AiController` is fed the same filtered messages as `RemoteHumanController` and acts by
+   queueing the same commands. Never hand a bot the hand, the deck or another seat's cards.
 
 ## Required Java concepts (college syllabus — keep visible in code)
 
@@ -106,6 +108,13 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Sounds are made in code by `SoundPlayer` (client `util`) and are off until `HoldemApp` turns them
   on, so tests and `ViewGallery` are silent. `RoomState` announces each `Cue`; `TableView` plays it.
 - README pictures are in `docs/images`: the `app-*` ones are copied from a `ViewGallery` run.
+- Bots: `poker-ai` holds the strategies (pure, tested alone); `server.player.AiController` runs one
+  in a seat. `AiTableTest` plays hundreds of hands with real bots on real threads and is the test to
+  run after touching either. `poker-bot-client` is something else: network test players for soak runs.
+- A test server shares the real database unless told otherwise, and starting one marks the rooms
+  of a server that is already running as closed. When the user's server is up, give the test
+  server its own database: `CREATE DATABASE holdem_aitest OWNER holdem` in the Docker Postgres and
+  `db.url=jdbc:postgresql://localhost:5433/holdem_aitest` in its config file.
 - `ReconnectSmoke` (client test sources) rehearses a dropped connection with the real `RoomSession`.
 - Stopping the server prints two harmless "Could not contact [localhost:8205]" lines from Cargo;
   the server has already shut down cleanly by then (the log ends with "Hold'em server stopped").
@@ -122,7 +131,7 @@ Fix and update this section whenever a command changes.
 - Base package `com.saksham.poker.<module>.<area>`.
 - Immutable value objects; `record` for plain data; `abstract class` hierarchies where the spec
   says (PlayerAction, GameEvent, Message, RoomCommand, SeatController, PokerException, BaseDao,
-  BaseServlet).
+  BaseServlet, PageServlet, BotStrategy).
 - Checked `PokerException` tree for game/room errors; unchecked `PersistenceException`,
   `StorageException`.
 - Every public engine method tested; bug fix = failing test first.
@@ -141,4 +150,5 @@ Fix and update this section whenever a command changes.
 - Put game rules outside `poker-engine`.
 - Trust client-sent amounts, seats, turn order or hand ids.
 - Block the JavaFX Application Thread or a room actor thread on I/O.
-- Build AI agents yet.
+- Let a bot see or do anything a person in its seat could not.
+- Do a bot's thinking on a room's thread: `AiController` schedules it on the bot-thinker threads.

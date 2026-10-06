@@ -232,21 +232,42 @@ public final class Room {
         scheduleNextHand(timings.betweenHandsMs());
     }
 
+    /**
+     * Seats a computer player in the first free seat, at the host's request.
+     *
+     * @throws RoomFullException if every seat is taken
+     */
+    void addBot(long hostId, long botUserId, String username, SeatController controller) throws PokerException {
+        requireHost(hostId, "add a bot");
+        int free = -1;
+        for (int seat = 0; seat < seats.length && free < 0; seat++) {
+            if (seats[seat] == null) {
+                free = seat;
+            }
+        }
+        if (free < 0 || members.size() >= settings.maxPlayers()) {
+            throw new RoomFullException("There is no free seat for a bot. Every seat is taken.");
+        }
+        join(botUserId, username, controller);
+        takeSeat(botUserId, free);
+    }
+
     void leave(long userId) throws PokerException {
         remove(requireMember(userId), LeaveReason.LEFT);
     }
 
     void kick(long hostId, long targetId) throws PokerException {
         requireHost(hostId, "remove a player");
-        if (state != RoomState.WAITING) {
-            throw new InvalidRequestException("Players can only be removed before the game starts.");
-        }
         if (hostId == targetId) {
             throw new InvalidRequestException("You cannot remove yourself. Leave the room instead.");
         }
         RoomMember target = members.get(targetId);
         if (target == null) {
             throw new InvalidRequestException("That player is not in this room.");
+        }
+        // A bot can be sent away at any time; a person only before the game starts.
+        if (state != RoomState.WAITING && !target.bot) {
+            throw new InvalidRequestException("Players can only be removed before the game starts.");
         }
         remove(target, LeaveReason.KICKED);
     }
@@ -272,7 +293,8 @@ public final class Room {
         countSeats();
         listener.released(member.userId, code);
 
-        if (members.isEmpty()) {
+        if (noPeopleLeft()) {
+            // Nobody, or only bots: there is no one to play for.
             close();
             return;
         }
@@ -284,17 +306,37 @@ public final class Room {
         }
     }
 
-    /** The host has gone: the next seated player becomes host, or failing that anyone still here. */
+    private boolean noPeopleLeft() {
+        for (RoomMember member : members.values()) {
+            if (!member.bot) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The host has gone: the next seated person becomes host, or failing that any person still here.
+     * Never a bot. The caller has checked that at least one person remains.
+     */
     private void passHost() {
         RoomMember next = null;
         for (RoomMember seat : seats) {
-            if (seat != null) {
+            if (seat != null && !seat.bot) {
                 next = seat;
                 break;
             }
         }
         if (next == null) {
-            next = members.values().iterator().next();
+            for (RoomMember member : members.values()) {
+                if (!member.bot) {
+                    next = member;
+                    break;
+                }
+            }
+        }
+        if (next == null) {
+            return;
         }
         hostUserId = next.userId;
         broadcast(new HostChanged(hostUserId));
@@ -485,9 +527,10 @@ public final class Room {
         scheduler.schedule(new RoomCommands.IdleCheck(++idleGeneration), timings.idleCloseMs());
     }
 
+    /** True when no person is connected. Bots are always there, so they do not count. */
     private boolean noOneConnected() {
         for (RoomMember member : members.values()) {
-            if (member.connected) {
+            if (member.connected && !member.bot) {
                 return false;
             }
         }
@@ -840,7 +883,7 @@ public final class Room {
     private PlayerInfo infoOf(RoomMember member) {
         long stack = inCurrentHand(member) && view.hasSeat(member.seat) ? view.stack(member.seat) : member.stack;
         return new PlayerInfo(member.userId, member.username, member.seat, stack, member.sittingOut,
-                member.connected);
+                member.connected, member.bot);
     }
 
     private RoomSnapshot snapshotFor(RoomMember member) {

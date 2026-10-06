@@ -14,6 +14,7 @@
   <modules>
     <module>poker-common</module>
     <module>poker-engine</module>
+    <module>poker-ai</module>
     <module>poker-server</module>
     <module>poker-client-fx</module>
     <module>poker-bot-client</module>
@@ -83,6 +84,11 @@
       <dependency>
         <groupId>com.saksham.poker</groupId>
         <artifactId>poker-engine</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.saksham.poker</groupId>
+        <artifactId>poker-ai</artifactId>
         <version>${project.version}</version>
       </dependency>
 
