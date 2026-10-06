@@ -45,6 +45,40 @@ public final class RoomCommands {
         }
     }
 
+    /** The host seats a computer player. */
+    public static final class AddBot extends RoomCommand {
+
+        private final long hostUserId;
+        private final long botUserId;
+        private final String username;
+        private final SeatController controller;
+
+        public AddBot(long hostUserId, long botUserId, String username, SeatController controller) {
+            this.hostUserId = hostUserId;
+            this.botUserId = botUserId;
+            this.username = username;
+            this.controller = controller;
+        }
+
+        @Override
+        public void execute(Room room) throws PokerException {
+            room.addBot(hostUserId, botUserId, username, controller);
+        }
+
+        /** The host asked, so the host is told why not. */
+        @Override
+        public long userId() {
+            return hostUserId;
+        }
+
+        /** The bot never got in, so its account is free to be used elsewhere. */
+        @Override
+        public void failed(Room room, PokerException reason) {
+            room.joinRefused(botUserId);
+            super.failed(room, reason);
+        }
+    }
+
     /** A member sits down at a seat. */
     public static final class TakeSeat extends RoomCommand {
 

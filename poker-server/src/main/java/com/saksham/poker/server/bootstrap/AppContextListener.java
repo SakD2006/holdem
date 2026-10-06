@@ -5,6 +5,7 @@ import com.saksham.poker.engine.card.SecureDeckFactory;
 import com.saksham.poker.server.auth.PasswordHasher;
 import com.saksham.poker.server.auth.SessionService;
 import com.saksham.poker.server.db.AuthTokenDao;
+import com.saksham.poker.server.db.BotAccountDao;
 import com.saksham.poker.server.db.DataSourceProvider;
 import com.saksham.poker.server.db.HandDao;
 import com.saksham.poker.server.db.HandRecordWriter;
@@ -15,6 +16,7 @@ import com.saksham.poker.server.io.HandHistoryFileWriter;
 import com.saksham.poker.server.io.ServerConfig;
 import com.saksham.poker.server.lan.DiscoveryResponder;
 import com.saksham.poker.server.lan.NetworkInfo;
+import com.saksham.poker.server.player.BotService;
 import com.saksham.poker.server.room.AsyncRoomStore;
 import com.saksham.poker.server.room.RoomCodeGenerator;
 import com.saksham.poker.server.room.RoomManager;
@@ -43,12 +45,15 @@ public class AppContextListener implements ServletContextListener {
 
     /** Turn timers, the pause between hands and reconnect grace all share these threads. */
     private static final int TIMER_THREADS = 2;
+    /** Computer players think on these, so a slow decision never delays a room or a timer. */
+    private static final int BOT_THREADS = 2;
     /** A hand the database refuses is tried this many times before it is written to a file instead. */
     private static final int SAVE_ATTEMPTS = 3;
     private static final long SAVE_RETRY_MS = 500;
 
     private DataSourceProvider database;
     private ScheduledExecutorService timers;
+    private ScheduledExecutorService botThinkers;
     private AsyncRoomStore roomStore;
     private HandRecordWriter handWriter;
     private RoomManager roomManager;
@@ -100,7 +105,15 @@ public class AppContextListener implements ServletContextListener {
         SessionService sessions = new SessionService(users, tokens, new PasswordHasher(), clock,
                 config.tokenLifetime());
         RoomService roomService = new RoomService(rooms, users, new RoomCodeGenerator(), roomManager);
-        new AppContext(config, sessions, roomService, roomManager, hands, rooms, connections,
+        AtomicInteger thinkerNumber = new AtomicInteger();
+        botThinkers = Executors.newScheduledThreadPool(BOT_THREADS, runnable -> {
+            Thread thread = new Thread(runnable, "bot-thinker-" + thinkerNumber.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
+        BotService bots = new BotService(new BotAccountDao(dataSource), roomManager, botThinkers,
+                config.botThinkMinMs(), config.botThinkMaxMs());
+        new AppContext(config, sessions, roomService, roomManager, hands, rooms, connections, bots,
                 new MessageCodec()).storeIn(servletContext);
 
         discovery = new DiscoveryResponder(config.discoveryPort(), config.httpPort());
@@ -138,6 +151,9 @@ public class AppContextListener implements ServletContextListener {
         }
         if (roomManager != null) {
             roomManager.shutdown();
+        }
+        if (botThinkers != null) {
+            botThinkers.shutdownNow();
         }
         if (timers != null) {
             timers.shutdownNow();

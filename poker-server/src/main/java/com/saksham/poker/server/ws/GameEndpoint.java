@@ -3,6 +3,7 @@ package com.saksham.poker.server.ws;
 import com.saksham.poker.common.exception.PokerException;
 import com.saksham.poker.common.exception.ProtocolException;
 import com.saksham.poker.common.protocol.ClientMessage;
+import com.saksham.poker.common.protocol.client.AddBot;
 import com.saksham.poker.common.protocol.client.EndRoom;
 import com.saksham.poker.common.protocol.client.JoinRoom;
 import com.saksham.poker.common.protocol.client.Kick;
@@ -89,6 +90,10 @@ public class GameEndpoint {
             connection.send(new Pong());
         } else if (message instanceof JoinRoom join) {
             app.roomManager().join(id, user.username(), join.code(), controller);
+        } else if (message instanceof AddBot add) {
+            // Finding or making the bot's account reads the database, so it is done here and not
+            // on the room's thread. The room itself checks that the asker is the host.
+            app.bots().add(id, add.level());
         } else {
             app.roomManager().submit(id, commandFor(id, message));
         }

@@ -9,6 +9,8 @@ final class RoomMember {
     final long userId;
     final String username;
     SeatController controller;
+    /** A computer player. Fixed when it joins. */
+    final boolean bot;
 
     /** Seat number, or {@link PlayerInfo#NO_SEAT}. */
     int seat = PlayerInfo.NO_SEAT;
@@ -29,6 +31,7 @@ final class RoomMember {
         this.userId = userId;
         this.username = username;
         this.controller = controller;
+        this.bot = controller.isBot();
     }
 
     boolean seated() {

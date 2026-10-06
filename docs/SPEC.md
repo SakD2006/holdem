@@ -27,10 +27,11 @@ Wi-Fi/LAN run the desktop app and connect to `http://<host-ip>:8080/poker`.
 - Export their hand history to a text file.
 
 **Host-only:** start game, pause/resume between hands, kick a player while the room is waiting,
-end the room. If the host leaves, host passes to the next seated player.
+add a computer player (bot) to a free seat and remove one at any time, end the room. If the host
+leaves, host passes to the next seated person, never to a bot; a room with only bots left closes.
 
 **Not in scope:** internet play, hosting, public lobby, bankroll/chip economy, spectators,
-tournaments, other variants, installers, AI agents (seam only, §13).
+tournaments, other variants, installers. Computer players are in scope: §13.
 
 **Chips:** each room is self-contained. Everyone starts with the room's starting stack; results
 are recorded per hand (net won/lost) for stats. No persistent bankroll.
@@ -226,7 +227,8 @@ server's goes up by one per message so a client can spot a gap and send `REQUEST
 `payload` may be left out when a message has no fields. Cards are text such as `"Ah"`.
 
 **Client → server:** `JOIN_ROOM {code}`, `TAKE_SEAT {seat}`, `LEAVE_ROOM`, `START_GAME`,
-`PAUSE_GAME`, `RESUME_GAME`, `KICK {userId}`, `END_ROOM`, `ACTION {turnId, action, amount}`,
+`PAUSE_GAME`, `RESUME_GAME`, `KICK {userId}`, `ADD_BOT {level}`, `END_ROOM`,
+`ACTION {turnId, action, amount}`,
 `SIT_OUT`, `SIT_IN`, `REBUY`, `CHAT {text}`, `REQUEST_SNAPSHOT`, `PING`.
 
 **Server → client:** `ROOM_SNAPSHOT` (settings, state, host, seats, stacks, board, pots, your
@@ -376,7 +378,7 @@ try-with-resources everywhere; failures raise `StorageException`, logged, never 
 | Concept | Where |
 |---|---|
 | Packages | module/package layouts in §3, §4, §10 |
-| Abstract class | `PlayerAction`, `GameEvent`, `Message`, `RoomCommand`, `SeatController`, `PokerException`, `BaseDao`, `BaseServlet`, `PageServlet` |
+| Abstract class | `PlayerAction`, `GameEvent`, `Message`, `RoomCommand`, `SeatController`, `PokerException`, `BaseDao`, `BaseServlet`, `PageServlet`, `BotStrategy` |
 | Inheritance | all their subclasses; exception tree below |
 | Polymorphism | `command.execute(room)`, `controller.onActionRequested(req)`, Jackson polymorphic messages, client dispatch per message type, `HandValue.compareTo` |
 | User-defined exceptions | `PokerException` → `GameRuleException` (`InvalidActionException`, `NotYourTurnException`, `InvalidAmountException`), `RoomException` (`RoomNotFoundException`, `RoomFullException`, `RoomClosedException`, `SeatTakenException`, `NotHostException`, `GameAlreadyStartedException`, `NotEnoughPlayersException`, `RebuyNotAllowedException`, `NotInRoomException`, `AlreadyInRoomException`), `AuthException` (`InvalidCredentialsException`, `UsernameTakenException`, `UnauthorizedException`), `ProtocolException`; unchecked `PersistenceException`, `StorageException` — each maps to an `ErrorCode` |
@@ -476,8 +478,46 @@ never send other players' cards or deck order; chat length-limited and escaped i
 
 ---
 
-## 13. Future AI agents (seam only)
+## 13. Computer players (AI)
 
-Agents will be `SeatController` subclasses (or external programs using `poker-bot-client`),
-receive the same filtered events as humans, and a host will be able to "add bot to seat".
-Keep `RoomSettings.allowBots = false` for now. Nothing else to build yet.
+**The rule that matters:** a bot is given exactly the messages a person in its seat is given, the
+ones `EventRouter` has already filtered, and nothing else. It never sees another player's hole
+cards or the deck, and it acts by queueing the same `RoomCommand` a person's app causes. A bot
+cannot do anything a person could not.
+
+```
+poker-ai (depends on common + engine; no IO, no threads)
+com.saksham.poker.ai
+  TableObserver     builds the bot's picture of a hand from server messages
+  Observation       record: what the bot knows when it must act
+  Decision          record: its choice; madeLegal() forces it inside the limits it was given
+  BotStrategy       abstract class: decide(Observation, Random)
+  RuleBasedStrategy starting-hand table (Chen formula) + hand strength against pot odds
+  HandStrength      Chen score, made-hand strength, outs, draw chance
+  Strategies        the strategy for each BotLevel
+
+poker-server
+  player.AiController  extends SeatController: observes on the room's thread, thinks on a
+                       "bot-thinker" thread after a pause, answers with PlayerActionCmd
+  player.BotService    finds or creates a bot account and asks the room to seat it
+  db.BotAccountDao     bot accounts
+```
+
+- **Adding:** the host sends `ADD_BOT {level}`. `GameEndpoint` passes it to `BotService`, which
+  picks a bot account that is not playing anywhere (or creates one) and queues
+  `RoomCommands.AddBot`. The room checks the asker is the host and seats the bot in the first free
+  seat; a refusal (`NOT_HOST`, `ROOM_FULL`) goes to the host and frees the account. A bot may be
+  added to a running game; it waits for the big blind like anyone sitting down.
+- **Accounts:** a bot is a row in `users` with `bot_level` set (migration V3), named `Ada_bot`,
+  `Babbage_bot` and so on, so its hands are recorded like anyone's and it appears on the
+  leaderboard. Its `password_hash` is not a hash, so nobody can log in as one. An account plays in
+  one room at a time.
+- **At the table:** `PlayerInfo.bot` tells clients a player is a bot. A bot that loses its chips
+  rebuys; if the room does not allow rebuys it leaves. If a strategy throws, the bot checks or
+  folds. If it somehow sends an illegal action the room refuses it, the turn timer acts, and
+  `AiController.refusals()` counts it (it should stay 0).
+- **Pace:** a bot waits a random `bot.think.min.ms` to `bot.think.max.ms` (800 to 2500 by default)
+  before acting.
+- **Levels:** `BotLevel.EASY` (rules of thumb, a little loose). Stronger levels come in later
+  phases: simulation, opponent tracking, then a strategy trained by self-play.
+- `RoomSettings.allowBots` is unused: any host may add bots.

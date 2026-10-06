@@ -35,4 +35,12 @@ public abstract class SeatController {
 
     /** Whether the player can currently be reached. */
     public abstract boolean isConnected();
+
+    /**
+     * True for a computer player. A room treats one like anybody else at the table, with two
+     * exceptions: a bot is never made host, and a room with only bots left in it closes.
+     */
+    public boolean isBot() {
+        return false;
+    }
 }

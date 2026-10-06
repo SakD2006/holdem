@@ -7,11 +7,13 @@ import javafx.animation.PauseTransition;
 import javafx.util.Duration;
 import com.saksham.poker.client.app.RoomSession;
 import com.saksham.poker.client.state.RoomState;
+import com.saksham.poker.common.protocol.client.AddBot;
 import com.saksham.poker.common.protocol.client.EndRoom;
 import com.saksham.poker.common.protocol.client.PauseGame;
 import com.saksham.poker.common.protocol.client.ResumeGame;
 import com.saksham.poker.common.protocol.client.SitOut;
 import com.saksham.poker.common.protocol.client.TakeSeat;
+import com.saksham.poker.common.protocol.dto.BotLevel;
 import com.saksham.poker.common.protocol.dto.PlayerInfo;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
@@ -36,6 +38,7 @@ public final class TableView extends BorderPane {
     private final Label subtitle = Ui.label("", "muted");
     private final Button sitOut;
     private final Button pause;
+    private final Button addBot;
     private final Button endRoom;
 
     public TableView(RoomSession session) {
@@ -46,6 +49,7 @@ public final class TableView extends BorderPane {
         VBox titles = new VBox(1, title, subtitle);
         sitOut = Ui.button("Sit out", () -> session.send(new SitOut()), "small");
         pause = Ui.button("Pause", () -> session.send(state.paused() ? new ResumeGame() : new PauseGame()), "small");
+        addBot = Ui.button("Add bot", () -> session.send(new AddBot(BotLevel.EASY)), "small");
         endRoom = Ui.button("End room", () -> confirm("End the room for everyone?",
                 "The game stops and every player is sent back to the home screen.", "End room",
                 () -> session.send(new EndRoom())), "small", "danger");
@@ -57,7 +61,7 @@ public final class TableView extends BorderPane {
                 session.leave();
             }
         }, "small");
-        HBox top = new HBox(8, titles, SeatNode.spacer(), sitOut, pause, endRoom, leave);
+        HBox top = new HBox(8, titles, SeatNode.spacer(), sitOut, addBot, pause, endRoom, leave);
         top.setAlignment(Pos.CENTER_LEFT);
         top.getStyleClass().add("top-bar");
         setTop(top);
@@ -149,6 +153,8 @@ public final class TableView extends BorderPane {
         boolean host = state.youAreHost();
         show(pause, host);
         show(endRoom, host);
+        // A bot can join a game in progress; it waits for the big blind like anyone sitting down.
+        show(addBot, host && state.players().size() < state.settingsProperty().get().maxPlayers());
         pause.setText(state.paused() ? "Resume" : "Pause");
         PlayerInfo me = state.player(state.yourUserIdProperty().get());
         show(sitOut, me != null && me.seated() && !me.sittingOut());

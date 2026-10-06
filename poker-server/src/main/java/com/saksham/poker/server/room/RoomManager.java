@@ -107,6 +107,30 @@ public final class RoomManager implements RoomListener {
     }
 
     /**
+     * Seats a computer player in the room its host is in.
+     *
+     * @return false if this bot account is already playing somewhere, so the caller should offer
+     *     another; true once the request has been handed to the room, which reports any refusal to
+     *     the host itself
+     * @throws NotInRoomException if the host is not in a room
+     */
+    public boolean addBot(long hostUserId, long botUserId, String botName, SeatController controller)
+            throws NotInRoomException {
+        String code = roomOfUser.get(hostUserId);
+        RoomActor actor = code == null ? null : rooms.get(code);
+        if (actor == null) {
+            throw new NotInRoomException("You are not in a room. Join one with its code first.");
+        }
+        if (roomOfUser.putIfAbsent(botUserId, code) != null) {
+            return false;
+        }
+        if (!actor.submit(new RoomCommands.AddBot(hostUserId, botUserId, botName, controller))) {
+            roomOfUser.remove(botUserId, code); // the room closed at that very moment
+        }
+        return true;
+    }
+
+    /**
      * Hands a command to the room the user is in.
      *
      * @throws NotInRoomException if the user is not in a room
