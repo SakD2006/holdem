@@ -150,6 +150,52 @@
     -fx-font-size: 12px;
 }
 
+/* A button that opens a menu, such as "Add bot". It looks like any other button. */
+.menu-button {
+    -fx-background-color: -hd-panel-edge;
+    -fx-background-radius: 8;
+    -fx-padding: 4 8;
+    -fx-cursor: hand;
+}
+
+.menu-button > .label {
+    -fx-text-fill: -hd-ivory;
+}
+
+.menu-button:hover {
+    -fx-background-color: #2f5c4d;
+}
+
+.menu-button:disabled {
+    -fx-opacity: 0.45;
+}
+
+.menu-button.small {
+    -fx-padding: 1 4;
+    -fx-font-size: 12px;
+}
+
+.menu-button > .arrow-button > .arrow {
+    -fx-background-color: -hd-ivory;
+}
+
+.context-menu {
+    -fx-background-color: -hd-panel;
+    -fx-background-radius: 8;
+    -fx-border-color: -hd-panel-edge;
+    -fx-border-radius: 8;
+    -fx-padding: 4;
+}
+
+.menu-item > .label {
+    -fx-text-fill: -hd-ivory;
+}
+
+.menu-item:focused {
+    -fx-background-color: -hd-panel-edge;
+    -fx-background-radius: 6;
+}
+
 .check-box {
     -fx-text-fill: -hd-ivory;
 }

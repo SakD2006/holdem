@@ -267,10 +267,21 @@ multithreading (bot-thinker threads), JDBC (bot accounts), collections.
 
 ## Phase 10 — Simulation bot and an arena
 
-- [ ] Equity by Monte Carlo: play out thousands of finishes against random opposing hands.
-- [ ] `MonteCarloStrategy` (medium level), sized bets, position.
-- [ ] Arena: bots play tens of thousands of hands against each other without a server, and a
-      results table shows who wins and by how many big blinds per 100 hands.
+**Concepts:** multithreading (the arena shares hands between threads), collections, polymorphism.
+
+- [x] Equity by Monte Carlo (`Equity`, `FastHand`, `PreflopTable`, `Range`).
+- [x] `MonteCarloStrategy` (medium level): seat-aware starting hands, ranges from each opponent's
+      actions, bets sized to the pot.
+- [x] Arena (`Arena`, `ArenaMain`): results in big blinds per 100 hands with a margin of error.
+- [x] App: **Add bot** is now a menu with Easy and Medium.
+
+**Done when:** the arena shows the medium bot beating the easy one by more than the margin.
+
+> Measured (seed 11): at a six-player table of two easy, two solid rule-based and two simulation
+> bots over 1,000,000 hands, simulation +12.9, solid +7.2, easy -20.1 bb/100 (margins about 2.4).
+> Heads-up over 400,000 hands, simulation beats solid by 32.9 and easy by 30.0 (margins about 2).
+> Its settings were tuned against these same rule-based bots, so the gap against other kinds of
+> player is not known. **Not yet done:** playing against it by hand.
 
 **You'll have:** a medium bot, and a way to measure any bot's strength with numbers.
 
