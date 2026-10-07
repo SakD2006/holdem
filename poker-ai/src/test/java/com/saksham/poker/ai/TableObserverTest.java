@@ -72,7 +72,7 @@ class TableObserverTest {
         assertThat(seen.stack()).isEqualTo(9_700);
         assertThat(seen.streetBet()).isEqualTo(300);
         assertThat(seen.playersInHand()).isEqualTo(2);
-        assertThat(seen.opponents()).isEqualTo(1);
+        assertThat(seen.opponentCount()).isEqualTo(1);
         assertThat(seen.raisesThisStreet()).isEqualTo(2);
     }
 
@@ -96,6 +96,55 @@ class TableObserverTest {
 
         observer.accept(new PlayerActed(5, ActionType.BET, 400, 400, 5_300, false));
         assertThat(askedToAct(400).pot()).isEqualTo(1_050);
+    }
+
+    @Test
+    void whatEachOpponentHasDoneIsRemembered() {
+        dealThreeHanded();
+        observer.accept(new PlayerActed(1, ActionType.RAISE, 300, 300, 9_700, false));
+        observer.accept(new PlayerActed(3, ActionType.CALL, 250, 300, 7_700, false));
+        observer.accept(new PlayerActed(5, ActionType.RAISE, 800, 900, 5_100, false));
+
+        Observation preflop = askedToAct(600);
+
+        assertThat(preflop.aggressor()).as("seat 5 raised after us").isFalse();
+        assertThat(preflop.highestBet()).isEqualTo(900);
+        Opponent caller = preflop.opponents().get(0);
+        Opponent raiser = preflop.opponents().get(1);
+        assertThat(caller.seat()).isEqualTo(3);
+        assertThat(caller.calledPreflopRaise()).isTrue();
+        assertThat(caller.preflopRaises()).isZero();
+        assertThat(raiser.seat()).isEqualTo(5);
+        assertThat(raiser.preflopRaises()).isEqualTo(1);
+        assertThat(raiser.betThisStreet()).isTrue();
+        assertThat(raiser.stack()).isEqualTo(5_100);
+
+        // On the flop "bet this street" starts again, but the earlier raise is not forgotten.
+        observer.accept(new PlayerActed(1, ActionType.CALL, 600, 900, 9_100, false));
+        observer.accept(new PlayerActed(3, ActionType.FOLD, 0, 300, 7_700, false));
+        observer.accept(new PotsUpdated(List.of(new PotInfo(2_100, List.of(1, 5)))));
+        observer.accept(new StreetDealt("FLOP", Card.parseAll("2c 5d 9h"), Card.parseAll("2c 5d 9h")));
+        observer.accept(new PlayerActed(5, ActionType.BET, 1_000, 1_000, 4_100, false));
+
+        Observation flop = askedToAct(1_000);
+
+        assertThat(flop.opponents()).hasSize(1);
+        Opponent stillIn = flop.opponents().get(0);
+        assertThat(stillIn.preflopRaises()).isEqualTo(1);
+        assertThat(stillIn.betThisStreet()).isTrue();
+        assertThat(stillIn.postflopBets()).isEqualTo(1);
+    }
+
+    @Test
+    void theLastPlayerToRaiseBeforeTheFlopIsTheAggressor() {
+        dealThreeHanded();
+        observer.accept(new PlayerActed(1, ActionType.RAISE, 300, 300, 9_700, false));
+        observer.accept(new PlayerActed(3, ActionType.FOLD, 0, 50, 7_950, false));
+        observer.accept(new PlayerActed(5, ActionType.CALL, 200, 300, 5_700, false));
+        observer.accept(new PotsUpdated(List.of(new PotInfo(650, List.of(1, 5)))));
+        observer.accept(new StreetDealt("FLOP", Card.parseAll("2c 5d 9h"), Card.parseAll("2c 5d 9h")));
+
+        assertThat(askedToAct(0).aggressor()).isTrue();
     }
 
     @Test

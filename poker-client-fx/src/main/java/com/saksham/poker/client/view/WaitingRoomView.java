@@ -9,7 +9,6 @@ import com.saksham.poker.common.protocol.client.EndRoom;
 import com.saksham.poker.common.protocol.client.Kick;
 import com.saksham.poker.common.protocol.client.StartGame;
 import com.saksham.poker.common.protocol.client.TakeSeat;
-import com.saksham.poker.common.protocol.dto.BotLevel;
 import com.saksham.poker.common.protocol.dto.PlayerInfo;
 import com.saksham.poker.common.protocol.dto.RoomSettingsInfo;
 import java.util.StringJoiner;
@@ -17,6 +16,7 @@ import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.FlowPane;
@@ -42,7 +42,7 @@ public final class WaitingRoomView extends StackPane {
     private final Label standing = Ui.label("", "muted");
     private final Label status = Ui.label("", "muted");
     private final Label message = Ui.message();
-    private final Button addBot;
+    private final MenuButton addBot;
     private final Button start;
     private final Button end;
 
@@ -58,7 +58,7 @@ public final class WaitingRoomView extends StackPane {
         start = Ui.button("Start game", () -> session.send(new StartGame()), "primary");
         end = Ui.button("End room", () -> session.send(new EndRoom()), "danger");
         // The server seats the bot in the first free seat.
-        addBot = Ui.button("Add bot", () -> session.send(new AddBot(BotLevel.EASY)));
+        addBot = Ui.addBotMenu(level -> session.send(new AddBot(level)));
         Region gap = new Region();
         HBox.setHgrow(gap, Priority.ALWAYS);
         HBox buttons = new HBox(10, Ui.button("Leave room", session::leave), gap, addBot, end, start);

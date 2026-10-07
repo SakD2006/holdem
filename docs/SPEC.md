@@ -492,9 +492,21 @@ com.saksham.poker.ai
   Observation       record: what the bot knows when it must act
   Decision          record: its choice; madeLegal() forces it inside the limits it was given
   BotStrategy       abstract class: decide(Observation, Random)
+  Opponent          record: what one opponent has done this hand (raised, called, bet)
   RuleBasedStrategy starting-hand table (Chen formula) + hand strength against pot odds
+  MonteCarloStrategy winning chance by simulation against the opponents' likely hands
   HandStrength      Chen score, made-hand strength, outs, draw chance
   Strategies        the strategy for each BotLevel
+com.saksham.poker.ai.sim
+  FastHand          a fast evaluator for simulations; agrees with the engine's (tested)
+  PreflopTable      every starting hand's place among all 1,326, worked out by simulation
+  Range             a guess at an opponent's possible hands
+  Equity            Monte Carlo: deal the unseen cards many times and count the wins
+com.saksham.poker.ai.arena
+  Arena             bots play each other on the real engine, many threads, no server
+  SeatFeed          engine event -> the message a seat is sent (the arena's copy of EventRouter)
+  ArenaResult       big blinds won per 100 hands, with a margin of error
+  ArenaMain         runs it from a terminal
 
 poker-server
   player.AiController  extends SeatController: observes on the room's thread, thinks on a
@@ -518,6 +530,13 @@ poker-server
   `AiController.refusals()` counts it (it should stay 0).
 - **Pace:** a bot waits a random `bot.think.min.ms` to `bot.think.max.ms` (800 to 2500 by default)
   before acting.
-- **Levels:** `BotLevel.EASY` (rules of thumb, a little loose). Stronger levels come in later
-  phases: simulation, opponent tracking, then a strategy trained by self-play.
+- **Levels:** `EASY` (rules of thumb, a little loose) and `MEDIUM` (simulation: 600 deals per
+  decision against ranges guessed from each opponent's actions). Each level has bot names of its
+  own, so a name always means the same strength. Later phases: opponent tracking, then a strategy
+  trained by self-play.
+- **Measuring strength:** the arena. Every hand starts with 100 big blinds each, seating is
+  shuffled every hand, and results are big blinds won per 100 hands with a 95% margin. The same
+  seed replays the same match. `ArenaFeedMatchesServerTest` checks the arena tells a seat exactly
+  what the server would, so a strategy tuned there meets the same game at a real table. A claim
+  that one bot is better than another must come with an arena result larger than its margin.
 - `RoomSettings.allowBots` is unused: any host may add bots.

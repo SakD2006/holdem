@@ -10,6 +10,7 @@ import com.saksham.poker.server.db.BotAccountDao;
 import com.saksham.poker.server.room.RoomCommand;
 import com.saksham.poker.server.room.RoomManager;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,9 +26,13 @@ public final class BotService {
 
     private static final Logger log = LoggerFactory.getLogger(BotService.class);
 
-    /** First names for bots, after people who shaped computing and mathematics. */
-    static final List<String> NAMES = List.of("Ada", "Babbage", "Curie", "Dijkstra", "Euler", "Fermat", "Gauss",
-            "Hopper", "Knuth", "Lovelace", "Noether", "Turing");
+    /**
+     * First names for bots, after people who shaped computing and mathematics. Each level has names
+     * of its own, so a name always means the same strength.
+     */
+    static final Map<BotLevel, List<String>> NAMES = Map.of(
+            BotLevel.EASY, List.of("Ada", "Babbage", "Curie", "Dijkstra", "Euler", "Fermat"),
+            BotLevel.MEDIUM, List.of("Gauss", "Hopper", "Knuth", "Lovelace", "Noether", "Turing"));
     /** How many account names are tried before giving up; far more than any server needs. */
     private static final int MAX_ACCOUNTS = 500;
 
@@ -75,7 +80,7 @@ public final class BotService {
         }
         // All busy, or none yet: make another. A name a person has taken is skipped.
         for (int number = 0; number < MAX_ACCOUNTS; number++) {
-            Optional<BotAccount> created = accounts.create(nameFor(number), level);
+            Optional<BotAccount> created = accounts.create(nameFor(level, number), level);
             if (created.isPresent() && seat(hostUserId, created.get())) {
                 log.info("Created bot account {} ({})", created.get().username(), level);
                 return;
@@ -100,9 +105,10 @@ public final class BotService {
     }
 
     /** Ada_bot, Babbage_bot, ... then Ada_bot2, Babbage_bot2, and so on. */
-    static String nameFor(int number) {
-        String name = NAMES.get(number % NAMES.size()) + "_bot";
-        int round = number / NAMES.size();
+    static String nameFor(BotLevel level, int number) {
+        List<String> names = NAMES.get(level);
+        String name = names.get(number % names.size()) + "_bot";
+        int round = number / names.size();
         return round == 0 ? name : name + (round + 1);
     }
 }

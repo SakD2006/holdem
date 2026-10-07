@@ -108,7 +108,7 @@ public final class RuleBasedStrategy extends BotStrategy {
         int outs = HandStrength.outs(seen.holeCards(), seen.board());
         double improve = HandStrength.drawChance(outs, 5 - seen.board().size());
         // Each extra opponent makes it likelier that somebody holds better.
-        double strength = made - 0.04 * (seen.opponents() - 1);
+        double strength = made - 0.04 * (seen.opponentCount() - 1);
         double winChance = strength + (1 - strength) * improve;
 
         if (seen.toCall() == 0) {
@@ -118,7 +118,7 @@ public final class RuleBasedStrategy extends BotStrategy {
             if (outs >= 8 && random.nextDouble() < 0.4) {
                 return Decision.bet(share(seen, 0.5)); // betting a draw: it can win now or get there later
             }
-            if (seen.opponents() <= 2 && random.nextDouble() < style.bluff()) {
+            if (seen.opponentCount() <= 2 && random.nextDouble() < style.bluff()) {
                 return Decision.bet(share(seen, 0.5));
             }
             return Decision.check();
