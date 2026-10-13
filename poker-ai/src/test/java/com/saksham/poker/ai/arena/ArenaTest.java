@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
+import com.saksham.poker.ai.AdaptiveStrategy;
 import com.saksham.poker.ai.MonteCarloStrategy;
 import com.saksham.poker.ai.RuleBasedStrategy;
 import com.saksham.poker.ai.RuleBasedStrategy.Style;
@@ -62,6 +63,27 @@ class ArenaTest {
 
         // About 35 big blinds per 100 hands in long runs; here it need only be clearly ahead.
         assertThat(result.perHundred(0)).isGreaterThan(result.margin(0) + 5);
+    }
+
+    @Test
+    void theAdaptiveBotTakesMoreFromAFlawedOpponentThanTheSimulationBotDoes() {
+        // Same cards, same opponent: one who gives up to any bet after the flop.
+        ArenaResult adaptive = new Arena(List.of(new Entrant("adaptive", new AdaptiveStrategy(120)),
+                new Entrant("overfolder", new OverFolder()))).play(40_000, 5, 4);
+        ArenaResult plain = new Arena(List.of(new Entrant("simulation", new MonteCarloStrategy(120)),
+                new Entrant("overfolder", new OverFolder()))).play(40_000, 5, 4);
+
+        // In long runs: about 65 against about 41 big blinds per 100 hands.
+        assertThat(adaptive.perHundred(0) - adaptive.margin(0)).isGreaterThan(plain.perHundred(0) + plain.margin(0));
+    }
+
+    @Test
+    void anOpponentWhoSwitchesStyleToPunishAdaptationStillLoses() {
+        ArenaResult result = new Arena(List.of(new Entrant("adaptive", new AdaptiveStrategy(120)),
+                new Entrant("chameleon", new Chameleon()))).play(30_000, 5, 4);
+
+        assertThat(result.perHundred(0)).isGreaterThan(result.margin(0) + 50);
+        assertThat(result.illegal()).isZero();
     }
 
     @Test

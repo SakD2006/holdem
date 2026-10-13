@@ -13,7 +13,7 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - Hands-on checklist before a demo: [docs/QA.md](docs/QA.md)
 
 **Status:** the game is complete (phases 0 to 8). Computer players are being added: the host can
-seat easy and medium bots from the app (phases 9 and 10), and stronger ones are planned
+seat easy, medium and hard bots from the app (phases 9 to 11), and a self-trained one is planned
 (`docs/PLAN.md`). Still to do: testing by hand on several computers (`docs/QA.md`).
 
 ## What it looks like
@@ -47,8 +47,9 @@ The server's web pages, open to any browser on the network:
   a leaderboard; the server has the same as web pages.
 - **Look good.** Cards are dealt, turned over and mucked with movement; chips fly to the pot.
   Four card backs, a four-colour deck, your own pictures for the cards, and sounds you can turn off.
-- **Play alone.** The host presses **Add bot** to seat computer players, which know only what a
-  person in their seat would see.
+- **Play alone.** The host presses **Add bot** to seat computer players at three levels. The hard
+  one remembers how you bet and what you showed, and adjusts. All of them know only what a person
+  in their seat would see.
 - **Test alone.** Separate network test bots join a room like people, for long unattended runs.
 
 ## Modules
@@ -198,8 +199,10 @@ who won in big blinds per 100 hands:
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"
 ```
 
-`easy` and `simulation` are the Easy and Medium bots in the app; `solid` is the rule-based bot
-without its beginner's habits; `caller` never folds. The `+/-` column is the margin of error: a
+`easy`, `simulation` and `adaptive` are the Easy, Medium and Hard bots in the app; `solid` is the
+rule-based bot without its beginner's habits. `caller` (never folds), `maniac` (bets everything),
+`overfolder` (gives up to any bet) and `chameleon` (switches between styles) are flawed opponents
+for testing whether a bot takes advantage of mistakes. The `+/-` column is the margin of error: a
 difference smaller than it could be luck. `--seed 7` replays the same cards.
 
 ## Where hands are kept

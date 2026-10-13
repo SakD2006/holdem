@@ -114,8 +114,11 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   run after touching either. `poker-bot-client` is something else: network test players for soak runs.
 - The arena (`poker-ai`, `ArenaMain`) is how bot strength is measured: about 100,000 hands a
   second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,
-  `caller`. Before changing a strategy, run it; after, run it again with the same `--seed`. A
+  `adaptive`, and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Before changing a strategy, run it; after, run it again with the same `--seed`. A
   difference smaller than the margins means nothing. Do not tune only against one line-up.
+- A bot's memory of opponents (`OpponentBook`, inside its `TableObserver`) may hold only what the
+  whole table saw. Hole cards go in only from a `Showdown` message. Never feed it from `HandRecord`,
+  the database or the engine.
 - A test server shares the real database unless told otherwise, and starting one marks the rooms
   of a server that is already running as closed. When the user's server is up, give the test
   server its own database: `CREATE DATABASE holdem_aitest OWNER holdem` in the Docker Postgres and

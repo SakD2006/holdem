@@ -285,13 +285,31 @@ multithreading (bot-thinker threads), JDBC (bot accounts), collections.
 
 **You'll have:** a medium bot, and a way to measure any bot's strength with numbers.
 
-## Phase 11 — Opponent tracking
+## Phase 11 — A bot that remembers its opponents
 
-- [ ] Per-opponent statistics from what is shown at the table (how often they enter a pot, raise,
-      fold to a bet, reach showdown).
-- [ ] The bot adjusts: bluffs players who fold too much, value-bets players who call too much.
+**Concepts:** inheritance and polymorphism (`AdaptiveStrategy extends MonteCarloStrategy`,
+overriding its judgement methods), collections (`OpponentBook`).
 
-**You'll have:** a bot that plays differently against each person.
+- [x] `OpponentBook` and `Tendencies`: per-player notes from what the table can see, including
+      hands shown at showdown, starting from a typical player.
+- [x] `AdaptiveStrategy` (hard level): bluffs players who fold, bets bigger and thinner against
+      players who call, calls players caught bluffing, opens wider against players who give up.
+- [x] Arena: flawed opponents to test against (`maniac`, `overfolder`, `chameleon`, with `caller`),
+      bots keep their memory across a match, and showdowns reach them.
+- [x] App: **Add bot** offers Hard.
+
+**Done when:** against each flawed opponent the adaptive bot wins more than the simulation bot by
+more than the margin, and it does not lose to the simulation bot.
+
+> Measured heads-up (seed 5, 200,000 to 300,000 hands, bb/100, adaptive against simulation):
+> caller 1,079 against 345; maniac 563 against 293; overfolder 65.5 against 41.4; chameleon 234
+> against 105; solid 57.1 against 35.5; easy 42.1 against 28.9. Adaptive beats simulation itself by
+> 8.4 (margin 3.4). At a six-player table of two of each sound bot it is ahead by a little
+> (+3.9 and +7.8, margins 2.7). Its settings were **not** tuned: these are first-run results.
+> The flawed opponents are extreme; real people are less one-sided, so expect smaller gains.
+> **Not yet done:** playing against it by hand.
+
+**You'll have:** a hard bot that learns how you play and gets tougher the longer you sit with it.
 
 ## Phase 12 — Self-play training
 

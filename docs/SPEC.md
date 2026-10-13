@@ -495,6 +495,9 @@ com.saksham.poker.ai
   Opponent          record: what one opponent has done this hand (raised, called, bet)
   RuleBasedStrategy starting-hand table (Chen formula) + hand strength against pot odds
   MonteCarloStrategy winning chance by simulation against the opponents' likely hands
+  AdaptiveStrategy  extends MonteCarloStrategy: fits its play to each opponent's habits
+  OpponentBook      the bot's notes on each player it has met, kept from hand to hand
+  Tendencies        record: one player's habits (enters pot, raises, folds to a bet, bluffs)
   HandStrength      Chen score, made-hand strength, outs, draw chance
   Strategies        the strategy for each BotLevel
 com.saksham.poker.ai.sim
@@ -530,10 +533,23 @@ poker-server
   `AiController.refusals()` counts it (it should stay 0).
 - **Pace:** a bot waits a random `bot.think.min.ms` to `bot.think.max.ms` (800 to 2500 by default)
   before acting.
-- **Levels:** `EASY` (rules of thumb, a little loose) and `MEDIUM` (simulation: 600 deals per
-  decision against ranges guessed from each opponent's actions). Each level has bot names of its
-  own, so a name always means the same strength. Later phases: opponent tracking, then a strategy
-  trained by self-play.
+- **Levels:** `EASY` (rules of thumb, a little loose), `MEDIUM` (simulation: 600 deals per
+  decision against ranges guessed from each opponent's actions) and `HARD` (Medium plus memory of
+  each opponent). Each level has bot names of its own, so a name always means the same strength.
+- **Memory (Hard):** `TableObserver` keeps an `OpponentBook` for as long as the bot sits in the
+  room. Per player it counts what the whole table could see: how often they enter a pot, raise,
+  fold to a raise before the flop, fold to a bet after it, and bet; and, when their cards are
+  turned over after they had been betting, whether the hand was weak (a bluff). Cards that were
+  never shown are never recorded: the bot is not sent them. Notes follow a player who changes
+  seat. Each figure starts at a typical player's and moves only as observations build up
+  (`Tendencies`), so a few hands prove nothing.
+- **Using it:** `AdaptiveStrategy` overrides the opponent-dependent judgements of
+  `MonteCarloStrategy`: the range it gives each opponent, how often a bluff will work (it bluffs
+  when the opponents' fold rates make a 0.7-pot bet profitable, more on later streets, never into
+  three or more players), how thin and how big to bet for value, and how much to trust a bet. Every
+  adjustment is capped. Against a player it has no notes on it plays exactly as Medium does (a
+  test checks this), and an arena opponent that switches style to punish adaptation still loses.
+- The memory lasts for the bot's stay in a room. It is not saved between rooms.
 - **Measuring strength:** the arena. Every hand starts with 100 big blinds each, seating is
   shuffled every hand, and results are big blinds won per 100 hands with a 95% margin. The same
   seed replays the same match. `ArenaFeedMatchesServerTest` checks the arena tells a seat exactly

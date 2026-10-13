@@ -12,6 +12,8 @@ import com.saksham.poker.common.action.PlayerAction;
 import com.saksham.poker.common.action.Raise;
 import com.saksham.poker.common.card.Card;
 import com.saksham.poker.common.exception.GameRuleException;
+import com.saksham.poker.common.protocol.dto.PlayerInfo;
+import com.saksham.poker.common.protocol.server.SeatUpdate;
 import com.saksham.poker.engine.card.Deck;
 import com.saksham.poker.engine.event.ActionRequested;
 import com.saksham.poker.engine.event.GameEvent;
@@ -115,6 +117,12 @@ public final class Arena {
         double[] won = new double[players];
         double[] wonSquared = new double[players];
         int illegal = 0;
+        // Each bot keeps one observer for the whole match, so what it learns about an opponent in
+        // one hand is still there in the next, as it is at a real table.
+        TableObserver[] memory = new TableObserver[players];
+        for (int entrant = 0; entrant < players; entrant++) {
+            memory[entrant] = new TableObserver();
+        }
         for (int handNo = 1; handNo <= hands; handNo++) {
             Collections.shuffle(cards, random);
             Collections.shuffle(seating, random); // seating.get(seat) = which entrant sits there
@@ -122,7 +130,16 @@ public final class Arena {
             TableObserver[] observers = new TableObserver[players];
             for (int seat = 0; seat < players; seat++) {
                 stacks.put(seat, STACK);
-                observers[seat] = new TableObserver();
+                observers[seat] = memory[seating.get(seat)];
+            }
+            // Tell everyone who is sitting where, as a room does when players take their seats.
+            for (int seat = 0; seat < players; seat++) {
+                int entrant = seating.get(seat);
+                SeatUpdate sits = new SeatUpdate(
+                        new PlayerInfo(entrant, entrants.get(entrant).name(), seat, STACK, false, true));
+                for (TableObserver observer : observers) {
+                    observer.accept(sits);
+                }
             }
             HoldemHand hand = new HoldemHand(new HandConfig(SMALL_BLIND, BIG_BLIND, handNo % players, stacks),
                     new Deck(cards));

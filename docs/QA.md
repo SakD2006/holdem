@@ -219,4 +219,12 @@ Use a browser on a device that is **not** the host: a phone on the same Wi-Fi is
       ones are named Ada to Fermat, medium ones Gauss to Turing.
 - [ ] Play fifty hands against medium bots. They fold more before the flop than easy ones, bet
       when they are ahead, and are harder to push off a hand. Note anything that looks foolish.
-
+- [ ] **Add bot** also offers Hard bot; hard ones are named Bayes, Laplace, Markov, Nash, Neumann
+      or Shannon.
+- [ ] Against one Hard bot, fold to every bet for thirty hands. It should start betting at you more
+      and more often.
+- [ ] Then call every bet for thirty hands. Its bluffs should stop, and its bets with good hands
+      should get bigger.
+- [ ] Bluff on the river and show it a few times. It should start calling your river bets with
+      weaker hands than before.
+- [ ] Leave and make a new room with a Hard bot: it starts fresh, with no memory of you.

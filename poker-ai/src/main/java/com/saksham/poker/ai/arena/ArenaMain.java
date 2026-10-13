@@ -1,5 +1,6 @@
 package com.saksham.poker.ai.arena;
 
+import com.saksham.poker.ai.AdaptiveStrategy;
 import com.saksham.poker.ai.BotStrategy;
 import com.saksham.poker.ai.MonteCarloStrategy;
 import com.saksham.poker.ai.RuleBasedStrategy;
@@ -47,7 +48,7 @@ public final class ArenaMain {
             System.out.printf("%.1f seconds on %d threads%n", (System.nanoTime() - started) / 1e9, threads);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            System.err.println("Usage: ArenaMain [--hands N] [--bots easy,solid,simulation,caller,...] [--seed N] "
+            System.err.println("Usage: ArenaMain [--hands N] [--bots easy,solid,simulation,adaptive,caller,maniac,overfolder,chameleon] [--seed N] "
                     + "[--deals N]");
             System.exit(2);
         }
@@ -58,9 +59,13 @@ public final class ArenaMain {
             case "easy" -> new RuleBasedStrategy(RuleBasedStrategy.Style.EASY);
             case "solid" -> new RuleBasedStrategy(RuleBasedStrategy.Style.SOLID);
             case "simulation" -> new MonteCarloStrategy(deals);
+            case "adaptive" -> new AdaptiveStrategy(deals);
             case "caller" -> new AlwaysCall();
+            case "maniac" -> new Maniac();
+            case "overfolder" -> new OverFolder();
+            case "chameleon" -> new Chameleon();
             default -> throw new IllegalArgumentException("There is no bot called \"" + kind
-                    + "\". Choose from easy, solid, simulation, caller.");
+                    + "\". Choose from easy, solid, simulation, adaptive, caller, maniac, overfolder, chameleon.");
         };
     }
 }

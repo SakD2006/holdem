@@ -114,7 +114,7 @@ class MonteCarloStrategyTest {
                 new Opponent(4, 5_000, 0, 0, true, false, 0),        // called a raise
                 new Opponent(5, 5_000, 400, 0, false, true, 1)));    // is betting now
 
-        List<Range> ranges = MonteCarloStrategy.ranges(seen);
+        List<Range> ranges = new MonteCarloStrategy(300).ranges(seen);
 
         assertThat(ranges).extracting(Range::width).containsExactly(0.8, 0.22, 0.06, 0.35, 0.8);
         assertThat(ranges.get(0).connected()).isZero();

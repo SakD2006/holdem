@@ -32,7 +32,8 @@ public final class BotService {
      */
     static final Map<BotLevel, List<String>> NAMES = Map.of(
             BotLevel.EASY, List.of("Ada", "Babbage", "Curie", "Dijkstra", "Euler", "Fermat"),
-            BotLevel.MEDIUM, List.of("Gauss", "Hopper", "Knuth", "Lovelace", "Noether", "Turing"));
+            BotLevel.MEDIUM, List.of("Gauss", "Hopper", "Knuth", "Lovelace", "Noether", "Turing"),
+            BotLevel.HARD, List.of("Bayes", "Laplace", "Markov", "Nash", "Neumann", "Shannon"));
     /** How many account names are tried before giving up; far more than any server needs. */
     private static final int MAX_ACCOUNTS = 500;
 

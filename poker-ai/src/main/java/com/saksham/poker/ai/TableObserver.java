@@ -3,16 +3,23 @@ package com.saksham.poker.ai;
 import com.saksham.poker.common.action.ActionType;
 import com.saksham.poker.common.card.Card;
 import com.saksham.poker.common.protocol.ServerMessage;
+import com.saksham.poker.common.protocol.dto.PlayerInfo;
 import com.saksham.poker.common.protocol.dto.PotInfo;
+import com.saksham.poker.common.protocol.dto.ShownHandInfo;
 import com.saksham.poker.common.protocol.server.BetReturned;
 import com.saksham.poker.common.protocol.server.BlindPosted;
 import com.saksham.poker.common.protocol.server.HandEnded;
 import com.saksham.poker.common.protocol.server.HandStarted;
 import com.saksham.poker.common.protocol.server.HoleCards;
 import com.saksham.poker.common.protocol.server.PlayerActed;
+import com.saksham.poker.common.protocol.server.PlayerJoined;
 import com.saksham.poker.common.protocol.server.PotsUpdated;
+import com.saksham.poker.common.protocol.server.RoomSnapshot;
+import com.saksham.poker.common.protocol.server.SeatUpdate;
+import com.saksham.poker.common.protocol.server.Showdown;
 import com.saksham.poker.common.protocol.server.StreetDealt;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +49,12 @@ public final class TableObserver {
     private long collected;
     private int raisesThisStreet;
     private final Map<Integer, int[]> seen = new TreeMap<>();
+    /** Who sits in each seat, so that notes on a player follow them from hand to hand. */
+    private final Map<Integer, Long> playerAt = new HashMap<>();
+    private final OpponentBook book = new OpponentBook();
+    /** Seats that have already been counted this hand as entering the pot, or as raising. */
+    private final Set<Integer> enteredPot = new HashSet<>();
+    private final Set<Integer> raisedPreflop = new HashSet<>();
     /** The seat that made the last raise before the flop, or -1. */
     private int preflopAggressor = -1;
     /** The bot's chips after the last hand it was in; -1 before it has played one. */
@@ -51,7 +64,16 @@ public final class TableObserver {
 
     /** Takes in one message. Messages that say nothing about the hand are ignored. */
     public void accept(ServerMessage message) {
-        if (message instanceof HandStarted m) {
+        if (message instanceof RoomSnapshot m) {
+            playerAt.clear();
+            m.players().forEach(this::place);
+        } else if (message instanceof PlayerJoined m) {
+            place(m.player());
+        } else if (message instanceof SeatUpdate m) {
+            place(m.player());
+        } else if (message instanceof Showdown m) {
+            shown(m);
+        } else if (message instanceof HandStarted m) {
             started(m);
         } else if (message instanceof HoleCards m) {
             mySeat = m.seat();
@@ -85,6 +107,41 @@ public final class TableObserver {
         }
     }
 
+    /** Notes where a player sits. Someone who moves seat takes their history with them. */
+    private void place(PlayerInfo player) {
+        playerAt.values().remove(player.userId());
+        if (player.seated()) {
+            playerAt.put(player.seat(), player.userId());
+        }
+    }
+
+    /** The player in a seat. A seat nobody has been announced in is given a stand-in identity. */
+    private long playerIn(int seat) {
+        return playerAt.getOrDefault(seat, -1L - seat);
+    }
+
+    /**
+     * Cards turned over at a showdown. For anyone who had been betting, the bot notes whether the
+     * hand was as strong as the betting claimed: this is how it learns who bluffs.
+     */
+    private void shown(Showdown m) {
+        if (board.size() < 3) {
+            return; // all-in before the flop: the betting said nothing about the board
+        }
+        for (ShownHandInfo hand : m.hands()) {
+            int[] did = seen.get(hand.seat());
+            if (hand.seat() == mySeat || did == null || did[POSTFLOP_BETS] == 0 || hand.cards().size() != 2
+                    || board.size() < 5) {
+                continue;
+            }
+            OpponentBook.Page page = book.page(playerIn(hand.seat()));
+            page.shownAfterBetting++;
+            if (HandStrength.made(hand.cards(), board) < WEAK_HAND) {
+                page.shownBluffs++;
+            }
+        }
+    }
+
     private void started(HandStarted m) {
         inHand = false; // true once this seat is dealt cards
         bigBlind = m.bigBlind();
@@ -100,6 +157,11 @@ public final class TableObserver {
         raisesThisStreet = 0;
         seen.clear();
         preflopAggressor = -1;
+        enteredPot.clear();
+        raisedPreflop.clear();
+        for (int seat : dealtSeats) {
+            book.page(playerIn(seat)).hands++;
+        }
     }
 
     // What each seat has done this hand: see the constants for what each slot counts.
@@ -107,6 +169,8 @@ public final class TableObserver {
     private static final int CALLED_PREFLOP_RAISE = 1;
     private static final int BET_THIS_STREET = 2;
     private static final int POSTFLOP_BETS = 3;
+    /** A shown hand weaker than this, after its owner had been betting, counts as a bluff. */
+    private static final double WEAK_HAND = 0.45;
 
     private void acted(PlayerActed m) {
         long highestBefore = 0;
@@ -117,6 +181,7 @@ public final class TableObserver {
         stacks.put(m.seat(), m.stack());
         int[] did = seen.computeIfAbsent(m.seat(), seat -> new int[4]);
         boolean preflop = board.isEmpty();
+        remember(m, preflop, highestBefore);
         if (m.action() == ActionType.FOLD) {
             folded.add(m.seat());
         } else if (m.action() == ActionType.BET || m.action() == ActionType.RAISE) {
@@ -133,6 +198,43 @@ public final class TableObserver {
         }
     }
 
+    /** Adds one action to the long-term notes on whoever made it. */
+    private void remember(PlayerActed m, boolean preflop, long highestBefore) {
+        OpponentBook.Page page = book.page(playerIn(m.seat()));
+        boolean raise = m.action() == ActionType.BET || m.action() == ActionType.RAISE;
+        boolean fold = m.action() == ActionType.FOLD;
+        if (preflop) {
+            if ((raise || m.action() == ActionType.CALL) && enteredPot.add(m.seat())) {
+                page.enteredPot++;
+            }
+            if (raise && raisedPreflop.add(m.seat())) {
+                page.raisedPreflop++;
+            }
+            if (highestBefore > bigBlind) {
+                page.facedPreflopRaise++;
+                if (fold) {
+                    page.foldedToPreflopRaise++;
+                }
+            }
+            return;
+        }
+        page.postflopActions++;
+        if (raise) {
+            page.postflopBets++;
+        }
+        if (highestBefore > streetBetBefore(m)) {
+            page.facedBet++;
+            if (fold) {
+                page.foldedToBet++;
+            }
+        }
+    }
+
+    /** What a seat had in front of it on this street before the action being recorded. */
+    private long streetBetBefore(PlayerActed m) {
+        return m.streetBet() - m.amount();
+    }
+
     /** An uncalled bet goes back to whoever made it. */
     private void returned(BetReturned m) {
         long onStreet = streetBets.getOrDefault(m.seat(), 0L);
@@ -142,6 +244,11 @@ public final class TableObserver {
             collected = Math.max(0, collected - m.amount());
         }
         stacks.merge(m.seat(), m.amount(), Long::sum);
+    }
+
+    /** The bot's notes on the players it has met. */
+    public OpponentBook book() {
+        return book;
     }
 
     /** True while this seat holds cards in a hand that has not ended. */
@@ -189,7 +296,7 @@ public final class TableObserver {
                 int[] did = seen.getOrDefault(seat, new int[4]);
                 opponents.add(new Opponent(seat, stacks.getOrDefault(seat, 0L), streetBets.getOrDefault(seat, 0L),
                         did[PREFLOP_RAISES], did[CALLED_PREFLOP_RAISE] == 1, did[BET_THIS_STREET] == 1,
-                        did[POSTFLOP_BETS]));
+                        did[POSTFLOP_BETS], book.tendencies(playerIn(seat))));
             }
         }
         if (opponents.isEmpty()) {
