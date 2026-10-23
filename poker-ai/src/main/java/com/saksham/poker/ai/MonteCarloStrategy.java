@@ -13,8 +13,11 @@ import java.util.Random;
  * starting hands that depends on its seat; after the flop it deals the hand out hundreds of times
  * against the hands its opponents could plausibly hold, given how they have bet, and compares its
  * winning chance with the price of continuing.
+ *
+ * <p>The judgements that depend on who the opponents are (what they might hold, how often a bluff
+ * works, how thin to bet for value) are separate methods, so a subclass can replace them.
  */
-public final class MonteCarloStrategy extends BotStrategy {
+public class MonteCarloStrategy extends BotStrategy {
 
     private final int deals;
 
@@ -92,7 +95,7 @@ public final class MonteCarloStrategy extends BotStrategy {
     }
 
     /** The share of hands worth opening from this seat: tight when many are still to act, loose late. */
-    private static double openShare(Observation seen) {
+    protected double openShare(Observation seen) {
         int players = seen.playersDealt();
         int seat = seen.seatsAfterButton();
         if (players == 2) {
@@ -129,25 +132,22 @@ public final class MonteCarloStrategy extends BotStrategy {
         long pot = seen.pot();
 
         if (seen.toCall() == 0) {
-            // An even share of the pot is one part in the number of players. A hand is worth betting
-            // when it is comfortably ahead of that: 0.6 against one opponent, 0.4 against three.
-            double evenShare = 1.0 / (rivals + 1);
-            double valueBar = 0.2 + 0.8 * evenShare;
-            if (chance >= valueBar) {
+            if (chance >= valueBar(seen)) {
                 // Now and then a very strong hand checks, to let someone else bet into it.
                 if (chance >= 0.9 && rivals == 1 && !seen.river() && random.nextDouble() < 0.15) {
                     return Decision.check();
                 }
-                return Decision.bet(share(pot, chance >= 0.82 ? 0.75 : 0.6, seen));
+                return Decision.bet(share(pot, valueSize(seen, chance), seen));
             }
             if (!seen.river() && outs >= 8 && random.nextDouble() < 0.55) {
                 return Decision.bet(share(pot, 0.6, seen)); // a draw can win now, or get there later
             }
-            if (seen.aggressor() && seen.board().size() == 3 && rivals <= 2 && random.nextDouble() < 0.55) {
+            if (seen.aggressor() && seen.board().size() == 3 && rivals <= 2
+                    && random.nextDouble() < continuationChance(seen)) {
                 return Decision.bet(share(pot, 0.5, seen)); // the raiser keeps telling the same story
             }
-            if (seen.river() && rivals == 1 && chance < 0.25 && random.nextDouble() < 0.14) {
-                return Decision.bet(share(pot, 0.7, seen)); // nothing to show down: the only way to win is a bet
+            if (random.nextDouble() < bluffChance(seen, chance)) {
+                return Decision.bet(share(pot, BLUFF_SIZE, seen)); // nothing to show down: only a bet can win
             }
             return Decision.check();
         }
@@ -160,11 +160,7 @@ public final class MonteCarloStrategy extends BotStrategy {
             return to * 5 >= (seen.stack() + seen.streetBet()) * 3 ? Decision.raise(seen.maxRaiseTo())
                     : Decision.raise(to);
         }
-        // Calling needs a margin over the bare price: more bets may follow, and a bet that has
-        // itself been raised means more strength than the ranges assume. The sizes of these margins,
-        // and of the value bar above, were chosen by trying alternatives in the arena.
-        double margin = (seen.river() ? 0.04 : 0.08) + (seen.raisesThisStreet() >= 2 ? 0.05 : 0);
-        if (chance >= price + margin) {
+        if (chance >= price + callMargin(seen)) {
             return Decision.call();
         }
         if (!seen.river() && outs >= 12 && seen.canRaise() && random.nextDouble() < 0.2) {
@@ -173,33 +169,81 @@ public final class MonteCarloStrategy extends BotStrategy {
         return Decision.fold();
     }
 
+    /** The size of a bluff, as a share of the pot. */
+    protected static final double BLUFF_SIZE = 0.7;
+
+    /**
+     * The winning chance at which a hand is worth betting for value. An even share of the pot is one
+     * part in the number of players; a hand is worth betting when it is comfortably ahead of that:
+     * 0.6 against one opponent, 0.4 against three.
+     */
+    protected double valueBar(Observation seen) {
+        return 0.2 + 0.8 / (seen.opponentCount() + 1);
+    }
+
+    /** How much of the pot to bet with a hand worth betting. */
+    protected double valueSize(Observation seen, double chance) {
+        return chance >= 0.82 ? 0.75 : 0.6;
+    }
+
+    /** How often the player who raised before the flop bets the flop whatever they hold. */
+    protected double continuationChance(Observation seen) {
+        return 0.55;
+    }
+
+    /**
+     * How often to bet with a hand that cannot win at showdown. With no knowledge of the opponent,
+     * only occasionally, on the river, against one player.
+     *
+     * @param chance the hand's chance of winning if the cards were shown
+     */
+    protected double bluffChance(Observation seen, double chance) {
+        return seen.river() && seen.opponentCount() == 1 && chance < 0.25 ? 0.14 : 0;
+    }
+
+    /**
+     * How far above the bare price a call must be. More bets may follow, and a bet that has itself
+     * been raised means more strength than the ranges assume. These sizes, and the value bar, were
+     * chosen by trying alternatives in the arena.
+     */
+    protected double callMargin(Observation seen) {
+        return (seen.river() ? 0.04 : 0.08) + (seen.raisesThisStreet() >= 2 ? 0.05 : 0);
+    }
+
     private static long share(long pot, double ofPot, Observation seen) {
         return Math.max(seen.bigBlind(), Math.round(pot * ofPot));
     }
 
-    /**
-     * A guess at each opponent's possible hands from what they have done. Raising before the flop
-     * narrows the range; betting after it suggests the board has helped them.
-     */
-    static List<Range> ranges(Observation seen) {
+    /** A guess at each opponent's possible hands. */
+    final List<Range> ranges(Observation seen) {
         List<Range> ranges = new ArrayList<>();
         for (Opponent opponent : seen.opponents()) {
-            double width;
-            if (opponent.preflopRaises() >= 2) {
-                width = 0.06;
-            } else if (opponent.preflopRaises() == 1) {
-                width = 0.22;
-            } else if (opponent.calledPreflopRaise()) {
-                width = 0.35;
-            } else {
-                width = opponent.seat() < 0 ? 0.6 : 0.8;
-            }
-            double connected = opponent.betThisStreet() ? 0.7 : opponent.postflopBets() > 0 ? 0.45 : 0;
-            if (opponent.postflopBets() >= 2) {
-                connected = Math.min(0.9, connected + 0.15);
-            }
-            ranges.add(new Range(width, connected));
+            ranges.add(rangeFor(opponent));
         }
         return ranges;
+    }
+
+    /**
+     * A guess at one opponent's possible hands from what they have done in this hand. Raising before
+     * the flop narrows the range; betting after it suggests the board has helped them.
+     */
+    protected Range rangeFor(Opponent opponent) {
+        double width;
+        if (opponent.preflopRaises() >= 2) {
+            width = 0.06;
+        } else if (opponent.preflopRaises() == 1) {
+            width = 0.22;
+        } else if (opponent.calledPreflopRaise()) {
+            width = 0.35;
+        } else {
+            width = opponent.seat() < 0 ? 0.6 : 0.8;
+        }
+        return new Range(width, connected(opponent));
+    }
+
+    /** How strongly an opponent's betting since the flop suggests the board has helped them. */
+    protected static double connected(Opponent opponent) {
+        double connected = opponent.betThisStreet() ? 0.7 : opponent.postflopBets() > 0 ? 0.45 : 0;
+        return opponent.postflopBets() >= 2 ? Math.min(0.9, connected + 0.15) : connected;
     }
 }

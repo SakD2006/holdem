@@ -3,10 +3,12 @@ package com.saksham.poker.ai.arena;
 import com.saksham.poker.common.protocol.ServerMessage;
 import com.saksham.poker.common.protocol.dto.PayoutInfo;
 import com.saksham.poker.common.protocol.dto.PotInfo;
+import com.saksham.poker.common.protocol.dto.ShownHandInfo;
 import com.saksham.poker.common.protocol.server.BetReturned;
 import com.saksham.poker.common.protocol.server.HandEnded;
 import com.saksham.poker.common.protocol.server.HoleCards;
 import com.saksham.poker.common.protocol.server.PotsUpdated;
+import com.saksham.poker.common.protocol.server.Showdown;
 import com.saksham.poker.engine.event.BetsCollected;
 import com.saksham.poker.engine.event.BlindPosted;
 import com.saksham.poker.engine.event.GameEvent;
@@ -14,6 +16,7 @@ import com.saksham.poker.engine.event.HandCompleted;
 import com.saksham.poker.engine.event.HandStarted;
 import com.saksham.poker.engine.event.HoleCardsDealt;
 import com.saksham.poker.engine.event.PlayerActed;
+import com.saksham.poker.engine.event.ShowdownRevealed;
 import com.saksham.poker.engine.event.StreetDealt;
 import com.saksham.poker.engine.event.UncalledBetReturned;
 import com.saksham.poker.engine.hand.HandResult;
@@ -28,8 +31,8 @@ import java.util.TreeMap;
 /**
  * Turns an engine event into the message one seat would be sent, so a bot in the arena is fed
  * exactly as it is at a real table. The server's own router does this job for real games; this is
- * the arena's copy of the part a bot uses, and a server test checks the two agree. Like the server,
- * it shows a seat nothing the engine marks as private to another.
+ * the arena's copy, and a server test checks the two agree. Like the server, it shows a seat nothing
+ * the engine marks as private to another: hole cards reach other seats only at a showdown.
  */
 public final class SeatFeed {
 
@@ -69,6 +72,13 @@ public final class SeatFeed {
                 pots.add(new PotInfo(pot.amount(), new ArrayList<>(pot.eligibleSeats())));
             }
             return Optional.of(new PotsUpdated(pots));
+        }
+        if (event instanceof ShowdownRevealed e) {
+            List<ShownHandInfo> hands = new ArrayList<>();
+            for (ShowdownRevealed.ShownHand hand : e.hands()) {
+                hands.add(new ShownHandInfo(hand.seat(), hand.cards(), hand.value().category().name()));
+            }
+            return Optional.of(new Showdown(hands));
         }
         if (event instanceof HandCompleted e) {
             HandResult result = e.result();
