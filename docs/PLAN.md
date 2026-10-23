@@ -313,7 +313,11 @@ more than the margin, and it does not lose to the simulation bot.
 
 ## Phase 12 — Self-play training
 
-- [ ] Abstraction: group similar hands, allow a few bet sizes.
+- [x] Trainer project (`trainer/`, Rust, outside the Maven build; Python for experiments): CFR,
+      CFR+, Linear and Discounted CFR, external-sampling MCCFR, exact exploitability. Checked on
+      Kuhn and Leduc poker against published values.
+- [ ] Heads-up No-Limit Hold'em as a trainer game: 100 big blinds, a few bet sizes.
+- [ ] Abstraction: group similar hands by equity distribution on each street.
 - [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
 - [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
 - [ ] Arena results for every level against every other.

@@ -22,6 +22,8 @@ poker-server      runs on the host machine via Tomcat 10.1: JSON API servlets, W
                   endpoint, rooms, JDBC, hand-history files, a few JSP pages
 poker-client-fx   JavaFX desktop app: connect, login/register, create/join room, play
 poker-bot-client  headless test bots that join a room like a human (testing alone; future AI host)
+trainer           Rust + Python, outside Maven: self-play solvers (CFR family) that produce strategy
+                  files for poker-ai. Never a dependency of any Java module.
 ```
 
 Dependencies: `common ← engine ← ai ← server`, `common ← client-fx`, `common ← bot-client`.
@@ -67,6 +69,8 @@ SLF4J + Logback.
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"   # soak: bots make their own room
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"   # arena: bots against bots
+(cd trainer && cargo test --release)                             # trainer: solvers checked on Kuhn and Leduc poker
+python3 trainer/py/compare.py --game leduc --iterations 5000    # trainer: every solver, CSV + chart in trainer/runs/
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
