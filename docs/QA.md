@@ -215,4 +215,8 @@ Use a browser on a device that is **not** the host: a phone on the same Wi-Fi is
       names appearing again shows their accounts were freed).
 - [ ] Bots appear on the leaderboard and in hand history like any player.
 - [ ] Nobody can log in as a bot: try `Ada_bot` with any password.
+- [ ] **Add bot** opens a short menu: Easy bot, Medium bot. Each adds a bot of that level; easy
+      ones are named Ada to Fermat, medium ones Gauss to Turing.
+- [ ] Play fifty hands against medium bots. They fold more before the flop than easy ones, bet
+      when they are ahead, and are harder to push off a hand. Note anything that looks foolish.
 

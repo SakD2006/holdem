@@ -14,6 +14,12 @@
   <name>poker-ai</name>
   <description>Computer players: what a bot sees of a hand and how it chooses its action. No IO, no threads.</description>
 
+  <properties>
+    <!-- ./mvnw -pl poker-ai -am compile exec:java -Dexec.args="..." runs the arena. -->
+    <exec.skip>false</exec.skip>
+    <exec.mainClass>com.saksham.poker.ai.arena.ArenaMain</exec.mainClass>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.saksham.poker</groupId>

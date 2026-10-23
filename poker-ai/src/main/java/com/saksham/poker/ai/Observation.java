@@ -1,6 +1,7 @@
 package com.saksham.poker.ai;
 
 import com.saksham.poker.common.card.Card;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -23,14 +24,27 @@ import java.util.List;
  * @param playersDealt players dealt into the hand
  * @param seatsAfterButton 0 for the dealer button, 1 for the next seat clockwise, and so on
  * @param raisesThisStreet bets and raises made on this street so far, by anyone
+ * @param opponents the players still in against the bot, and what each has done this hand
+ * @param aggressor true if the bot made the last raise before the flop
  */
 public record Observation(List<Card> holeCards, List<Card> board, long pot, long toCall, boolean canCheck,
         boolean canBet, boolean canRaise, long minRaiseTo, long maxRaiseTo, long stack, long streetBet,
-        long bigBlind, int playersInHand, int playersDealt, int seatsAfterButton, int raisesThisStreet) {
+        long bigBlind, int playersInHand, int playersDealt, int seatsAfterButton, int raisesThisStreet,
+        List<Opponent> opponents, boolean aggressor) {
 
     public Observation {
         holeCards = List.copyOf(holeCards);
         board = List.copyOf(board);
+        opponents = List.copyOf(opponents);
+    }
+
+    /** An observation that says how many opponents remain but nothing about what they have done. */
+    public Observation(List<Card> holeCards, List<Card> board, long pot, long toCall, boolean canCheck,
+            boolean canBet, boolean canRaise, long minRaiseTo, long maxRaiseTo, long stack, long streetBet,
+            long bigBlind, int playersInHand, int playersDealt, int seatsAfterButton, int raisesThisStreet) {
+        this(holeCards, board, pot, toCall, canCheck, canBet, canRaise, minRaiseTo, maxRaiseTo, stack, streetBet,
+                bigBlind, playersInHand, playersDealt, seatsAfterButton, raisesThisStreet,
+                Collections.nCopies(Math.max(1, playersInHand - 1), Opponent.unknown()), false);
     }
 
     /** True before the flop. */
@@ -43,9 +57,14 @@ public record Observation(List<Card> holeCards, List<Card> board, long pot, long
         return board.size() == 5;
     }
 
-    /** Players still in against the bot. */
-    public int opponents() {
+    /** How many players are still in against the bot. */
+    public int opponentCount() {
         return Math.max(1, playersInHand - 1);
+    }
+
+    /** The highest bet anyone has made on this street. */
+    public long highestBet() {
+        return streetBet + toCall;
     }
 
     /**

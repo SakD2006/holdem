@@ -41,6 +41,9 @@ public final class TableObserver {
     /** Chips swept into the middle on earlier streets. */
     private long collected;
     private int raisesThisStreet;
+    private final Map<Integer, int[]> seen = new TreeMap<>();
+    /** The seat that made the last raise before the flop, or -1. */
+    private int preflopAggressor = -1;
     /** The bot's chips after the last hand it was in; -1 before it has played one. */
     private long stackAfterLastHand = -1;
     /** Whether the hand that has just ended was one this seat was dealt into. */
@@ -68,6 +71,9 @@ public final class TableObserver {
         } else if (message instanceof StreetDealt m) {
             board = List.copyOf(m.board());
             raisesThisStreet = 0;
+            for (int[] did : seen.values()) {
+                did[BET_THIS_STREET] = 0;
+            }
         } else if (message instanceof BetReturned m) {
             returned(m);
         } else if (message instanceof HandEnded m) {
@@ -92,15 +98,38 @@ public final class TableObserver {
         board = List.of();
         collected = 0;
         raisesThisStreet = 0;
+        seen.clear();
+        preflopAggressor = -1;
     }
 
+    // What each seat has done this hand: see the constants for what each slot counts.
+    private static final int PREFLOP_RAISES = 0;
+    private static final int CALLED_PREFLOP_RAISE = 1;
+    private static final int BET_THIS_STREET = 2;
+    private static final int POSTFLOP_BETS = 3;
+
     private void acted(PlayerActed m) {
+        long highestBefore = 0;
+        for (long bet : streetBets.values()) {
+            highestBefore = Math.max(highestBefore, bet);
+        }
         streetBets.put(m.seat(), m.streetBet());
         stacks.put(m.seat(), m.stack());
+        int[] did = seen.computeIfAbsent(m.seat(), seat -> new int[4]);
+        boolean preflop = board.isEmpty();
         if (m.action() == ActionType.FOLD) {
             folded.add(m.seat());
         } else if (m.action() == ActionType.BET || m.action() == ActionType.RAISE) {
             raisesThisStreet++;
+            did[BET_THIS_STREET] = 1;
+            if (preflop) {
+                did[PREFLOP_RAISES]++;
+                preflopAggressor = m.seat();
+            } else {
+                did[POSTFLOP_BETS]++;
+            }
+        } else if (m.action() == ActionType.CALL && preflop && highestBefore > bigBlind) {
+            did[CALLED_PREFLOP_RAISE] = 1;
         }
     }
 
@@ -154,9 +183,21 @@ public final class TableObserver {
         if (buttonIndex >= 0 && myIndex >= 0) {
             position = (myIndex - buttonIndex + dealtSeats.size()) % dealtSeats.size();
         }
+        List<Opponent> opponents = new ArrayList<>();
+        for (int seat : dealtSeats) {
+            if (seat != mySeat && !folded.contains(seat)) {
+                int[] did = seen.getOrDefault(seat, new int[4]);
+                opponents.add(new Opponent(seat, stacks.getOrDefault(seat, 0L), streetBets.getOrDefault(seat, 0L),
+                        did[PREFLOP_RAISES], did[CALLED_PREFLOP_RAISE] == 1, did[BET_THIS_STREET] == 1,
+                        did[POSTFLOP_BETS]));
+            }
+        }
+        if (opponents.isEmpty()) {
+            opponents.add(Opponent.unknown());
+        }
         return new Observation(holeCards, board, pot, toCall, canCheck, canBet, canRaise, minRaiseTo, maxRaiseTo,
                 stacks.getOrDefault(mySeat, 0L), streetBets.getOrDefault(mySeat, 0L), Math.max(1, bigBlind),
-                Math.max(1, dealtSeats.size() - folded.size()), Math.max(1, dealtSeats.size()), position,
-                raisesThisStreet);
+                opponents.size() + 1, Math.max(1, dealtSeats.size()), position, raisesThisStreet, opponents,
+                preflopAggressor == mySeat && mySeat >= 0);
     }
 }

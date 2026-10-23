@@ -13,8 +13,8 @@ app, types the host machine's IP address, logs in, and creates a room or joins o
 - Hands-on checklist before a demo: [docs/QA.md](docs/QA.md)
 
 **Status:** the game is complete (phases 0 to 8). Computer players are being added: the host can
-seat easy-level bots from the app (phase 9), and stronger ones are planned (`docs/PLAN.md`). Still
-to do: testing by hand on several computers (`docs/QA.md`).
+seat easy and medium bots from the app (phases 9 and 10), and stronger ones are planned
+(`docs/PLAN.md`). Still to do: testing by hand on several computers (`docs/QA.md`).
 
 ## What it looks like
 
@@ -188,6 +188,19 @@ Bots pause for a second or two before each action, a little longer before a bet 
 can follow what they do; `--think 300-900` changes the range (in milliseconds) and `--think 0`
 makes them act at once.
 The bots use accounts named `bot_1` to `bot_9`, which they register the first time.
+
+## Measuring the bots
+
+The arena plays bots against each other with no server, about 100,000 hands a second, and prints
+who won in big blinds per 100 hands:
+
+```bash
+./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"
+```
+
+`easy` and `simulation` are the Easy and Medium bots in the app; `solid` is the rule-based bot
+without its beginner's habits; `caller` never folds. The `+/-` column is the margin of error: a
+difference smaller than it could be luck. `--seed 7` replays the same cards.
 
 ## Where hands are kept
 

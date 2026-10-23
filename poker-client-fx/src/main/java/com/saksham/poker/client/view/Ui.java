@@ -1,6 +1,7 @@
 package com.saksham.poker.client.view;
 
 import com.saksham.poker.client.net.ApiClient;
+import com.saksham.poker.common.protocol.dto.BotLevel;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import javafx.application.Platform;
@@ -8,6 +9,8 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
@@ -31,6 +34,22 @@ final class Ui {
         button.getStyleClass().addAll(styleClasses);
         button.setOnAction(event -> action.run());
         return button;
+    }
+
+    /**
+     * The host's "Add bot" control: a button that opens a short menu of how well the bot should play.
+     *
+     * @param onChoice told which level was picked
+     */
+    static MenuButton addBotMenu(Consumer<BotLevel> onChoice, String... styleClasses) {
+        MenuButton menu = new MenuButton("Add bot");
+        menu.getStyleClass().addAll(styleClasses);
+        for (BotLevel level : BotLevel.values()) {
+            MenuItem item = new MenuItem(level.label() + " bot");
+            item.setOnAction(event -> onChoice.accept(level));
+            menu.getItems().add(item);
+        }
+        return menu;
     }
 
     /** A field with its name above it. */

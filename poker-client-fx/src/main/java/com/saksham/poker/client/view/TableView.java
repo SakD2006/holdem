@@ -13,7 +13,6 @@ import com.saksham.poker.common.protocol.client.PauseGame;
 import com.saksham.poker.common.protocol.client.ResumeGame;
 import com.saksham.poker.common.protocol.client.SitOut;
 import com.saksham.poker.common.protocol.client.TakeSeat;
-import com.saksham.poker.common.protocol.dto.BotLevel;
 import com.saksham.poker.common.protocol.dto.PlayerInfo;
 import javafx.beans.InvalidationListener;
 import javafx.geometry.Pos;
@@ -21,8 +20,10 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
@@ -38,7 +39,7 @@ public final class TableView extends BorderPane {
     private final Label subtitle = Ui.label("", "muted");
     private final Button sitOut;
     private final Button pause;
-    private final Button addBot;
+    private final MenuButton addBot;
     private final Button endRoom;
 
     public TableView(RoomSession session) {
@@ -49,7 +50,7 @@ public final class TableView extends BorderPane {
         VBox titles = new VBox(1, title, subtitle);
         sitOut = Ui.button("Sit out", () -> session.send(new SitOut()), "small");
         pause = Ui.button("Pause", () -> session.send(state.paused() ? new ResumeGame() : new PauseGame()), "small");
-        addBot = Ui.button("Add bot", () -> session.send(new AddBot(BotLevel.EASY)), "small");
+        addBot = Ui.addBotMenu(level -> session.send(new AddBot(level)), "small");
         endRoom = Ui.button("End room", () -> confirm("End the room for everyone?",
                 "The game stops and every player is sent back to the home screen.", "End room",
                 () -> session.send(new EndRoom())), "small", "danger");
@@ -140,7 +141,7 @@ public final class TableView extends BorderPane {
                 .ifPresent(button -> action.run());
     }
 
-    private static void show(Button button, boolean visible) {
+    private static void show(Control button, boolean visible) {
         button.setVisible(visible);
         button.setManaged(visible);
     }

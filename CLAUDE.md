@@ -66,6 +66,7 @@ SLF4J + Logback.
 ./mvnw -pl poker-client-fx -am -DskipTests package              # builds poker-client-fx/target/holdem-client
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"   # soak: bots make their own room
+./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"   # arena: bots against bots
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
@@ -111,6 +112,10 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Bots: `poker-ai` holds the strategies (pure, tested alone); `server.player.AiController` runs one
   in a seat. `AiTableTest` plays hundreds of hands with real bots on real threads and is the test to
   run after touching either. `poker-bot-client` is something else: network test players for soak runs.
+- The arena (`poker-ai`, `ArenaMain`) is how bot strength is measured: about 100,000 hands a
+  second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,
+  `caller`. Before changing a strategy, run it; after, run it again with the same `--seed`. A
+  difference smaller than the margins means nothing. Do not tune only against one line-up.
 - A test server shares the real database unless told otherwise, and starting one marks the rooms
   of a server that is already running as closed. When the user's server is up, give the test
   server its own database: `CREATE DATABASE holdem_aitest OWNER holdem` in the Docker Postgres and
