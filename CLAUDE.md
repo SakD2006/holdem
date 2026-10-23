@@ -72,7 +72,8 @@ SLF4J + Logback.
 (cd trainer && cargo test --release)                             # trainer: solvers checked on Kuhn and Leduc poker
 python3 trainer/py/compare.py --game leduc --iterations 5000    # trainer: every solver, CSV + chart in trainer/runs/
 (cd trainer && cargo run --release -- abstraction --out runs/abstraction-50.bin)   # Hold'em card buckets, ~3 min
-(cd trainer && cargo run --release -- holdem --abstraction runs/abstraction-50.bin --iterations 2000000)
+(cd trainer && cargo run --release -- holdem --abstraction runs/abstraction-50.bin --iterations 20000000 --save runs/bp.bin)
+(cd trainer && cargo run --release -- lbr --abstraction runs/abstraction-50.bin --blueprint runs/bp.bin)   # strength: LBR, lower is better
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
@@ -118,6 +119,9 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Bots: `poker-ai` holds the strategies (pure, tested alone); `server.player.AiController` runs one
   in a seat. `AiTableTest` plays hundreds of hands with real bots on real threads and is the test to
   run after touching either. `poker-bot-client` is something else: network test players for soak runs.
+- In the trainer, strength is local best response (`trainer lbr`), in mbb/hand, lower is better, ±130 at
+  50,000 deals. Head-to-head wins between two strategies of the same abstraction do not show strength:
+  more training can beat less training and still be easier to exploit (overfitting to the buckets).
 - The arena (`poker-ai`, `ArenaMain`) is how bot strength is measured: about 100,000 hands a
   second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,
   `adaptive`, and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Before changing a strategy, run it; after, run it again with the same `--seed`. A

@@ -75,6 +75,37 @@ pub trait Bucketer: Send + Sync {
     fn buckets_for(&self, hole: [Card; 2], board: &[Card; 5]) -> [u16; 4];
     /// How many buckets each street has.
     fn sizes(&self) -> [usize; 4];
+
+    /// Both players' buckets for one deal. Bucketers that can share work between the two
+    /// players override this.
+    fn deal_buckets(&self, holes: [[Card; 2]; 2], board: &[Card; 5]) -> [[u16; 4]; 2] {
+        [self.buckets_for(holes[0], board), self.buckets_for(holes[1], board)]
+    }
+
+    /// The bucket of every possible pair of hole cards (indexed by `combo_index`) on a board of
+    /// 0, 3, 4 or 5 cards. Pairs that use a board card get bucket 0; callers skip them.
+    fn range_buckets(&self, board: &[Card]) -> Vec<u16>;
+}
+
+/// The number of a pair of different cards, 0..1326.
+pub fn combo_index(a: Card, b: Card) -> usize {
+    let (low, high) = if a < b { (a as usize, b as usize) } else { (b as usize, a as usize) };
+    high * (high - 1) / 2 + low
+}
+
+/// Every pair of hole cards, in `combo_index` order.
+pub fn all_combos() -> Vec<[Card; 2]> {
+    let mut out = vec![[0, 0]; 1326];
+    for b in 1..52u8 {
+        for a in 0..b {
+            out[combo_index(a, b)] = [a, b];
+        }
+    }
+    out
+}
+
+fn board_mask(board: &[Card]) -> u64 {
+    board.iter().fold(0u64, |m, c| m | 1 << c)
 }
 
 /// Preflop: the 169 starting hands. After: the category of the best hand so far (high card,
@@ -93,6 +124,24 @@ impl Bucketer for CategoryBuckets {
 
     fn sizes(&self) -> [usize; 4] {
         [PREFLOP_BUCKETS, 9, 9, 9]
+    }
+
+    fn range_buckets(&self, board: &[Card]) -> Vec<u16> {
+        let used = board_mask(board);
+        all_combos()
+            .into_iter()
+            .map(|hole| {
+                if used & (1 << hole[0] | 1 << hole[1]) != 0 {
+                    0
+                } else if board.is_empty() {
+                    preflop_class(hole) as u16
+                } else {
+                    let mut cards = vec![hole[0], hole[1]];
+                    cards.extend_from_slice(board);
+                    (score(&cards) >> 20) as u16
+                }
+            })
+            .collect()
     }
 }
 
@@ -116,6 +165,43 @@ impl Bucketer for Abstraction {
 
     fn sizes(&self) -> [usize; 4] {
         self.buckets
+    }
+
+    fn range_buckets(&self, board: &[Card]) -> Vec<u16> {
+        let used = board_mask(board);
+        let combos = all_combos();
+        if board.len() == 5 {
+            let board: &[Card; 5] = board.try_into().expect("five cards");
+            let strengths = all_river_strengths(board);
+            return strengths
+                .iter()
+                .map(|s| if s.is_nan() { 0 } else { self.river_edges.partition_point(|e| e <= s) as u16 })
+                .collect();
+        }
+        combos
+            .into_iter()
+            .map(|hole| match board.len() {
+                _ if used & (1 << hole[0] | 1 << hole[1]) != 0 => 0,
+                0 => preflop_class(hole) as u16,
+                3 => self.flop.bucket(canon::key(hole, board)) as u16,
+                4 => self.turn.bucket(canon::key(hole, board)) as u16,
+                n => panic!("no street has {n} board cards"),
+            })
+            .collect()
+    }
+
+    fn deal_buckets(&self, holes: [[Card; 2]; 2], board: &[Card; 5]) -> [[u16; 4]; 2] {
+        let strengths = river_strengths(holes, board);
+        let mut out = [[0u16; 4]; 2];
+        for (player, hole) in holes.into_iter().enumerate() {
+            out[player] = [
+                preflop_class(hole) as u16,
+                self.flop.bucket(canon::key(hole, &board[..3])) as u16,
+                self.turn.bucket(canon::key(hole, &board[..4])) as u16,
+                self.river_edges.partition_point(|edge| *edge <= strengths[player]) as u16,
+            ];
+        }
+        out
     }
 }
 
@@ -297,6 +383,72 @@ fn showdown_points(mine: u32, theirs: u32) -> u32 {
         std::cmp::Ordering::Equal => 1,
         std::cmp::Ordering::Less => 0,
     }
+}
+
+/// `river_strength` for two players on one board, sharing the work: every two-card hand the
+/// remaining 47 cards can make is scored once (1,081 evaluations instead of 1,980).
+pub fn river_strengths(holes: [[Card; 2]; 2], board: &[Card; 5]) -> [f32; 2] {
+    let mut on_board = 0u64;
+    for &c in board {
+        on_board |= 1 << c;
+    }
+    let mut seven = [0, 0, board[0], board[1], board[2], board[3], board[4]];
+    let mut hands: Vec<(u64, u32)> = Vec::with_capacity(1081);
+    for a in 0..52u8 {
+        if on_board & (1 << a) != 0 {
+            continue;
+        }
+        for b in (a + 1)..52 {
+            if on_board & (1 << b) != 0 {
+                continue;
+            }
+            seven[0] = a;
+            seven[1] = b;
+            hands.push((1 << a | 1 << b, score(&seven)));
+        }
+    }
+    let mut out = [0f32; 2];
+    for (player, hole) in holes.into_iter().enumerate() {
+        let mine_mask = 1u64 << hole[0] | 1 << hole[1];
+        let mine = hands.iter().find(|(mask, _)| *mask == mine_mask).expect("own hand is listed").1;
+        let (mut points, mut count) = (0u32, 0u32);
+        for &(mask, theirs) in &hands {
+            if mask & mine_mask == 0 {
+                points += showdown_points(mine, theirs);
+                count += 1;
+            }
+        }
+        out[player] = points as f32 / (2 * count) as f32;
+    }
+    out
+}
+
+/// `river_strength` of every pair of hole cards on one board, indexed by `combo_index`; NaN for
+/// pairs that use a board card. Each hand is scored once and the hands compared pairwise.
+pub fn all_river_strengths(board: &[Card; 5]) -> Vec<f32> {
+    let used = board_mask(board);
+    let mut seven = [0, 0, board[0], board[1], board[2], board[3], board[4]];
+    let mut hands: Vec<(usize, u64, u32)> = Vec::with_capacity(1081);
+    for (index, hole) in all_combos().into_iter().enumerate() {
+        let mask = 1u64 << hole[0] | 1 << hole[1];
+        if used & mask == 0 {
+            seven[0] = hole[0];
+            seven[1] = hole[1];
+            hands.push((index, mask, score(&seven)));
+        }
+    }
+    let mut out = vec![f32::NAN; 1326];
+    for &(index, mask, mine) in &hands {
+        let (mut points, mut count) = (0u32, 0u32);
+        for &(_, other_mask, theirs) in &hands {
+            if other_mask & mask == 0 {
+                points += showdown_points(mine, theirs);
+                count += 1;
+            }
+        }
+        out[index] = points as f32 / (2 * count) as f32;
+    }
+    out
 }
 
 /// E[HS²] estimated by sampling run-outs and opponent hands.
@@ -483,6 +635,30 @@ mod tests {
             river_strength([hole[0], hole[1]], &[board[0], board[1], board[2], board[3], board[4]]),
             1.0
         );
+    }
+
+    #[test]
+    fn shared_river_strengths_match_the_single_ones() {
+        let mut rng = Rng::new(4);
+        for _ in 0..200 {
+            let c = deal(&mut rng, 9);
+            let holes = [[c[0], c[1]], [c[2], c[3]]];
+            let board = [c[4], c[5], c[6], c[7], c[8]];
+            let both = river_strengths(holes, &board);
+            assert_eq!(both[0], river_strength(holes[0], &board));
+            assert_eq!(both[1], river_strength(holes[1], &board));
+        }
+    }
+
+    #[test]
+    fn all_river_strengths_match_the_single_ones() {
+        let board_cards = parse("Ah 7d 7c 2s Td");
+        let board = [board_cards[0], board_cards[1], board_cards[2], board_cards[3], board_cards[4]];
+        let all = all_river_strengths(&board);
+        for hole in [parse("As Ad"), parse("7h 2h"), parse("Kc Qc")] {
+            assert_eq!(all[combo_index(hole[0], hole[1])], river_strength([hole[0], hole[1]], &board));
+        }
+        assert!(all[combo_index(board[0], 0)].is_nan() || board[0] == 0);
     }
 
     #[test]

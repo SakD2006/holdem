@@ -7,6 +7,58 @@ use crate::rng::Rng;
 /// order `legal_actions` returns them.
 pub type Action = usize;
 
+/// The legal actions at a decision: a short list kept on the stack, because solvers ask for it
+/// at every node of every iteration.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Actions {
+    len: u8,
+    items: [Action; Actions::MAX],
+}
+
+impl Actions {
+    pub const MAX: usize = 8;
+
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push(&mut self, action: Action) {
+        self.items[self.len as usize] = action;
+        self.len += 1;
+    }
+}
+
+impl From<&[Action]> for Actions {
+    fn from(actions: &[Action]) -> Self {
+        let mut list = Actions::new();
+        for &a in actions {
+            list.push(a);
+        }
+        list
+    }
+}
+
+impl std::ops::Deref for Actions {
+    type Target = [Action];
+    fn deref(&self) -> &[Action] {
+        &self.items[..self.len as usize]
+    }
+}
+
+impl std::ops::DerefMut for Actions {
+    fn deref_mut(&mut self) -> &mut [Action] {
+        &mut self.items[..self.len as usize]
+    }
+}
+
+impl IntoIterator for Actions {
+    type Item = Action;
+    type IntoIter = std::iter::Take<std::array::IntoIter<Action, { Actions::MAX }>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter().take(self.len as usize)
+    }
+}
+
 /// Identifies an information set: everything one player knows at a decision. Two states with
 /// the same key must offer the same legal actions in the same order.
 pub type InfoKey = u64;
@@ -40,7 +92,7 @@ pub trait Game {
     }
 
     /// At a player's node: what that player may do.
-    fn legal_actions(&self, state: &Self::State) -> Vec<Action>;
+    fn legal_actions(&self, state: &Self::State) -> Actions;
 
     fn apply(&self, state: &Self::State, action: Action) -> Self::State;
 

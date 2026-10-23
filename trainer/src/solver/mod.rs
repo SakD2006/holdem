@@ -7,6 +7,7 @@
 pub mod best_response;
 pub mod cfr;
 pub mod mccfr;
+pub mod parallel;
 
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -48,8 +49,13 @@ fn normalise_positive(values: &[f64]) -> Vec<f64> {
 }
 
 /// A way of playing: action probabilities for an information set, in legal-action order.
-pub trait Policy {
+pub trait Policy: Sync {
     fn probs(&self, key: InfoKey, actions: usize) -> Vec<f64>;
+
+    /// Whether the policy has learned anything at this information set.
+    fn contains(&self, _key: InfoKey) -> bool {
+        true
+    }
 }
 
 /// Every action equally often. Useful as a baseline: its exploitability is published for the
@@ -119,6 +125,10 @@ impl Policy for Table {
             Some(node) => node.average_strategy(),
             None => vec![1.0 / actions as f64; actions],
         }
+    }
+
+    fn contains(&self, key: InfoKey) -> bool {
+        self.nodes.contains_key(&key)
     }
 }
 

@@ -6,7 +6,7 @@
 //!
 //! Suits never matter here, so an information set records card ranks only.
 
-use crate::game::{Action, Game, InfoKey, Turn};
+use crate::game::{Action, Actions, Game, InfoKey, Turn};
 
 pub const FOLD: Action = 0;
 pub const CALL: Action = 1;
@@ -104,8 +104,8 @@ impl Game for Leduc {
         left.into_iter().map(|c| (c, p)).collect()
     }
 
-    fn legal_actions(&self, s: &LeducState) -> Vec<Action> {
-        let mut actions = Vec::with_capacity(3);
+    fn legal_actions(&self, s: &LeducState) -> Actions {
+        let mut actions = Actions::new();
         if s.contributed[s.player] < s.stakes {
             actions.push(FOLD);
         }

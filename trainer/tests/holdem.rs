@@ -29,7 +29,7 @@ fn random_hands_follow_the_rules() {
                 Turn::Player(_) => {
                     let legal = game.legal_actions(&state);
                     assert!(legal.contains(&CALL));
-                    let mut unique = legal.clone();
+                    let mut unique = legal.to_vec();
                     unique.sort_unstable();
                     unique.dedup();
                     assert_eq!(unique.len(), legal.len(), "no action twice: {legal:?}");
@@ -80,4 +80,34 @@ fn a_short_training_run_beats_players_who_ignore_their_cards() {
     let against_random = duel(&game, &trained, &RandomAgent, 20_000, 12);
     assert!(against_calls.bb_per_100 - against_calls.margin > 0.0, "{against_calls:?}");
     assert!(against_random.bb_per_100 - against_random.margin > 0.0, "{against_random:?}");
+}
+
+#[test]
+fn local_best_response_crushes_strategies_that_ignore_their_cards() {
+    use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
+    use holdem_trainer::solver::{Table, Uniform};
+    let game = game();
+    let options = LbrOptions { deals: 1500, seed: 3, threads: 4 };
+    // An empty table never trained anywhere, so it checks and calls every time.
+    let against_calls = local_best_response(&game, &Table::new(false), &options);
+    let against_random = local_best_response(&game, &Uniform, &options);
+    assert!(against_calls.bb_per_100 - against_calls.margin > 50.0, "{against_calls:?}");
+    assert!(against_random.bb_per_100 - against_random.margin > 50.0, "{against_random:?}");
+}
+
+#[test]
+fn training_makes_a_strategy_harder_to_exploit() {
+    use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
+    use holdem_trainer::solver::parallel::ParallelMccfr;
+    use holdem_trainer::solver::Uniform;
+    let mut solver = ParallelMccfr::new(game(), 20, 4, 50_000, 5);
+    solver.run_until(400_000);
+    let game = game();
+    let options = LbrOptions { deals: 1500, seed: 4, threads: 4 };
+    let trained = local_best_response(&game, solver.table(), &options);
+    let random = local_best_response(&game, &Uniform, &options);
+    assert!(
+        trained.bb_per_100 + trained.margin < random.bb_per_100 - random.margin,
+        "{trained:?} vs {random:?}"
+    );
 }

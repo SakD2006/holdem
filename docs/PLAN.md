@@ -319,7 +319,9 @@ more than the margin, and it does not lose to the simulation bot.
 - [x] Heads-up No-Limit Hold'em as a trainer game: 100 big blinds, a few bet sizes.
 - [x] Abstraction, first version: 169 starting hands, E[HS²] buckets on flop and turn, river
       strength buckets; duplicate matches to check a trained strategy learned something.
-- [ ] Training on all cores; local best response to measure strength.
+- [x] Training on all cores (200,000 iterations a second); local best response to measure
+      strength. Finding: 50 buckets overfit, so exploitability rises after about 2 million
+      iterations.
 - [ ] Better abstraction: k-means on equity histograms.
 - [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
 - [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.

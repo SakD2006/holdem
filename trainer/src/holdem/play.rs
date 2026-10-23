@@ -10,7 +10,7 @@
 use super::game::{Holdem, HoldemState, CALL};
 use crate::game::{Action, Game, InfoKey, Turn};
 use crate::rng::Rng;
-use crate::solver::{Policy, Table};
+use crate::solver::Policy;
 
 pub trait Agent: Sync {
     fn act(&self, key: InfoKey, legal: &[Action], rng: &mut Rng) -> Action;
@@ -34,15 +34,22 @@ impl Agent for RandomAgent {
     }
 }
 
-/// Plays a trained table's average strategy; checks or calls where it never trained.
-pub struct TableAgent<'a>(pub &'a Table);
+/// Plays a trained strategy (its average); checks or calls where it never trained.
+pub struct TableAgent<'a, P: Policy>(pub &'a P);
 
-impl Agent for TableAgent<'_> {
+impl<P: Policy> Agent for TableAgent<'_, P> {
     fn act(&self, key: InfoKey, legal: &[Action], rng: &mut Rng) -> Action {
-        if !self.0.nodes.contains_key(&key) {
-            return CALL;
-        }
-        legal[rng.pick(&self.0.probs(key, legal.len()))]
+        legal[rng.pick(&strategy_or_call(self.0, key, legal))]
+    }
+}
+
+/// What a trained strategy does at an information set: its average strategy, or always check
+/// or call where it never trained.
+pub fn strategy_or_call<P: Policy + ?Sized>(policy: &P, key: InfoKey, legal: &[Action]) -> Vec<f64> {
+    if policy.contains(key) {
+        policy.probs(key, legal.len())
+    } else {
+        legal.iter().map(|a| if *a == CALL { 1.0 } else { 0.0 }).collect()
     }
 }
 

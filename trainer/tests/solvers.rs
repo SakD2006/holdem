@@ -132,3 +132,24 @@ fn a_seed_replays_a_sampled_run_exactly() {
     };
     assert_eq!(train(), train());
 }
+
+#[test]
+fn parallel_mccfr_converges_on_leduc_with_many_threads() {
+    use holdem_trainer::solver::parallel::ParallelMccfr;
+    let mut solver = ParallelMccfr::new(Leduc, 16, 4, 20_000, 7);
+    solver.run_until(400_000);
+    let gap = exploitability(&Leduc, solver.table());
+    assert!(gap < 0.05, "exploitability {gap}");
+    assert_eq!(solver.table().len(), 288);
+}
+
+#[test]
+fn parallel_mccfr_on_one_thread_replays_exactly() {
+    use holdem_trainer::solver::parallel::ParallelMccfr;
+    let train = || {
+        let mut solver = ParallelMccfr::new(Leduc, 12, 1, 1000, 3);
+        solver.run_until(5000);
+        exploitability(&Leduc, solver.table())
+    };
+    assert_eq!(train(), train());
+}

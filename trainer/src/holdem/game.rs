@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use super::abstraction::Bucketer;
 use super::eval::{score, Card};
-use crate::game::{Action, Game, InfoKey, Turn};
+use crate::game::{Action, Actions, Game, InfoKey, Turn};
 use crate::rng::Rng;
 
 pub const STACK: u32 = 10_000;
@@ -41,9 +41,36 @@ impl Holdem {
     pub fn new(buckets: Arc<dyn Bucketer>) -> Self {
         Holdem { buckets }
     }
+
+    pub fn bucketer(&self) -> &dyn Bucketer {
+        self.buckets.as_ref()
+    }
+
+    /// The start of a hand with these exact cards (player 0 is the button).
+    pub fn deal(&self, holes: [[Card; 2]; 2], board: &[Card; 5]) -> HoldemState {
+        let mut state = self.root();
+        state.buckets = self.buckets.deal_buckets(holes, board);
+        for (player, hole) in holes.into_iter().enumerate() {
+            state.scores[player] =
+                score(&[hole[0], hole[1], board[0], board[1], board[2], board[3], board[4]]);
+        }
+        state.dealt = true;
+        state
+    }
+
+    /// The information set of whoever holds a hand in `bucket` at this point of the betting.
+    pub fn info_key_with_bucket(&self, s: &HoldemState, bucket: u16) -> InfoKey {
+        let mut z = s.path_hash ^ ((bucket as u64) << 48) ^ ((s.street as u64) << 60);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
 }
 
-#[derive(Clone, Debug)]
+/// Longest betting record a hand can have: at most six actions a street, plus street marks.
+const MAX_PATH: usize = 32;
+
+#[derive(Clone, Copy, Debug)]
 pub struct HoldemState {
     dealt: bool,
     /// Each player's bucket on each street.
@@ -61,25 +88,37 @@ pub struct HoldemState {
     acted: [bool; 2],
     folded: Option<usize>,
     /// Betting so far, with a mark between streets.
-    path: Vec<u8>,
+    path: [u8; MAX_PATH],
+    path_len: u8,
     path_hash: u64,
 }
 
 impl HoldemState {
+    /// 0 preflop, 1 flop, 2 turn, 3 river, 4 showdown.
+    pub fn street(&self) -> usize {
+        self.street as usize
+    }
+
+    /// What `player` has bet on the current street.
+    pub fn street_bet(&self, player: usize) -> u32 {
+        self.street_bet[player]
+    }
+
     fn behind(&self, player: usize) -> u32 {
         STACK - self.committed[player]
     }
 
-    fn to_call(&self, player: usize) -> u32 {
+    pub fn to_call(&self, player: usize) -> u32 {
         self.street_bet[1 - player] - self.street_bet[player]
     }
 
-    fn pot(&self) -> u32 {
+    pub fn pot(&self) -> u32 {
         self.committed[0] + self.committed[1]
     }
 
     fn record(&mut self, code: u8) {
-        self.path.push(code);
+        self.path[self.path_len as usize] = code;
+        self.path_len += 1;
         self.path_hash = (self.path_hash ^ (code as u64 + 1)).wrapping_mul(0x0000_0100_0000_01B3);
     }
 
@@ -138,7 +177,8 @@ impl Game for Holdem {
             last_raise: BIG_BLIND,
             acted: [false, false],
             folded: None,
-            path: Vec::with_capacity(16),
+            path: [0; MAX_PATH],
+            path_len: 0,
             path_hash: 0xCBF2_9CE4_8422_2325,
         }
     }
@@ -162,9 +202,9 @@ impl Game for Holdem {
         rng.next_u64() as Action
     }
 
-    fn legal_actions(&self, s: &HoldemState) -> Vec<Action> {
+    fn legal_actions(&self, s: &HoldemState) -> Actions {
         let me = s.to_act;
-        let mut actions = Vec::with_capacity(6);
+        let mut actions = Actions::new();
         if s.to_call(me) > 0 {
             actions.push(FOLD);
         }
@@ -188,20 +228,13 @@ impl Game for Holdem {
     }
 
     fn apply(&self, s: &HoldemState, action: Action) -> HoldemState {
-        let mut next = s.clone();
         if !s.dealt {
             let mut rng = Rng::new(action as u64);
             let cards = super::abstraction::deal(&mut rng, 9);
             let board: [Card; 5] = [cards[4], cards[5], cards[6], cards[7], cards[8]];
-            for player in 0..2 {
-                let hole = [cards[2 * player], cards[2 * player + 1]];
-                next.buckets[player] = self.buckets.buckets_for(hole, &board);
-                next.scores[player] =
-                    score(&[hole[0], hole[1], board[0], board[1], board[2], board[3], board[4]]);
-            }
-            next.dealt = true;
-            return next;
+            return self.deal([[cards[0], cards[1]], [cards[2], cards[3]]], &board);
         }
+        let mut next = *s;
         let me = s.to_act;
         match action {
             FOLD => {
@@ -253,17 +286,12 @@ impl Game for Holdem {
     }
 
     fn info_key(&self, s: &HoldemState, player: usize) -> InfoKey {
-        let bucket = s.buckets[player][s.street as usize] as u64;
-        let mut z = s.path_hash ^ (bucket << 48) ^ ((s.street as u64) << 60);
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
+        self.info_key_with_bucket(s, s.buckets[player][s.street as usize])
     }
 
     fn describe_info(&self, s: &HoldemState, player: usize) -> String {
         let streets = ["preflop", "flop", "turn", "river"];
-        let moves: String = s
-            .path
+        let moves: String = s.path[..s.path_len as usize]
             .iter()
             .map(|code| match *code {
                 STREET_MARK => "/".to_string(),

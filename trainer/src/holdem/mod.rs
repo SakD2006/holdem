@@ -4,4 +4,5 @@ pub mod abstraction;
 pub mod canon;
 pub mod eval;
 pub mod game;
+pub mod lbr;
 pub mod play;

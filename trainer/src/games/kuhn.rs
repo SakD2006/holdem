@@ -1,7 +1,7 @@
 //! Kuhn poker: three cards (J, Q, K), one each, one ante, one bet of one chip. Small enough to
 //! check a solver by hand: the first player's value at equilibrium is -1/18.
 
-use crate::game::{Action, Game, InfoKey, Turn};
+use crate::game::{Action, Actions, Game, InfoKey, Turn};
 
 pub const PASS: Action = 0;
 pub const BET: Action = 1;
@@ -57,8 +57,8 @@ impl Game for Kuhn {
         left.into_iter().map(|c| (c, p)).collect()
     }
 
-    fn legal_actions(&self, _s: &KuhnState) -> Vec<Action> {
-        vec![PASS, BET]
+    fn legal_actions(&self, _s: &KuhnState) -> Actions {
+        Actions::from(&[PASS, BET][..])
     }
 
     fn apply(&self, s: &KuhnState, action: Action) -> KuhnState {
