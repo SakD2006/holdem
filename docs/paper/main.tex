@@ -1,0 +1,67 @@
+% ICGA Journal submission (Sage). Class: sagej.cls v1.20, single column for review.
+% Build: tectonic -X compile main.tex   (or pdflatex main.tex twice; no BibTeX needed)
+\documentclass[Review,sageh,times]{sagej}
+
+\usepackage{iftex}
+\ifXeTeX  % Tectonic runs XeTeX: use the TeX Gyre clones of Times and Helvetica
+  \usepackage{fontspec}
+  \setmainfont{texgyretermes}[Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+    ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+  \setsansfont{texgyreheros}[Extension=.otf, Scale=0.95, UprightFont=*-regular,
+    BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\fi
+\usepackage{setspace}
+\usepackage[switch]{lineno}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{url}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}  % ragged-right table text
+\bibpunct{(}{)}{;}{a}{,}{,}  % APA in-text style: (Author, year); the list is APA 7
+
+\newcommand{\bbh}{bb/100}
+\renewcommand{\figurename}{Fig.}
+\newcommand{\tablefont}{\small\sffamily}  % Sage sets tables in sans
+
+% ICGA asks for numbered headings; the class turns numbering off by default.
+\setcounter{secnumdepth}{2}
+\makeatletter
+\def\journalname{ICGA Journal}
+\def\volumenumber{XX}\def\issuenumber{X}
+% Number every page, the first one too.
+\def\ps@title{\let\@oddhead\@empty\let\@evenhead\@empty
+  \def\@oddfoot{\hfill\sagesf\thepage\hfill}\let\@evenfoot\@oddfoot}
+\renewcommand{\@seccntformat}[1]{\csname the#1\endcsname\hspace{0.6em}}
+\makeatother
+
+\begin{document}
+
+\runninghead{Dubey}
+
+\title{Safe opponent adaptation in No-Limit Hold'em from public information}
+
+\author{Saksham Dubey\affilnum{1}}
+
+\affiliation{\affilnum{1}[Department], [University], [City], India}
+
+\corrauth{Saksham Dubey, [Department], [University], [Postal address], India.}
+
+\email{sakshamddubey@gmail.com}
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\keywords{Texas Hold'em, opponent modelling, safe exploitation, Monte Carlo simulation,
+imperfect-information games}
+
+\maketitle
+
+% Double spacing and line numbers for the review copy (ICGA guidelines).
+\doublespacing
+\linenumbers
+
+\input{body}
+
+
+\end{document}

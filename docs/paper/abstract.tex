@@ -1,0 +1,14 @@
+% Abstract text, shared by main.tex (ICGA) and arxiv.tex.
+The strongest poker agents approximate an equilibrium and do not adapt, so they leave value
+unclaimed against imperfect players. We study how much a lightweight agent can gain by
+adapting to opponents using only public information: the betting it observes and the cards
+revealed at showdown. Our agent extends a Monte Carlo equity player with an opponent model
+that shrinks each observed frequency toward a typical player, and with bounded adjustments
+to ranges, bluffing, bet sizing and calling. With no evidence about an opponent, it plays
+exactly as the base agent. In heads-up No-Limit Texas Hold'em at 100 big blinds, over
+200,000 to 300,000 hands per match, the adaptive agent wins more than the base agent against
+all six opponents tested: for example 65.5 against 41.4 big blinds per 100 hands (\bbh)
+against an opponent who over-folds, and 234 against 105 against one that switches style to
+defeat adaptation. It also beats the base agent directly by 8.4~\bbh{} (95\% interval
+$\pm$3.4). All opponents are synthetic and the agent is not an equilibrium player; we state
+these limits and outline the path to stronger baselines.
