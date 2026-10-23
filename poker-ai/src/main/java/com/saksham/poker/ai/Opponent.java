@@ -11,9 +11,17 @@ package com.saksham.poker.ai;
  * @param calledPreflopRaise whether they called someone else's raise before the flop
  * @param betThisStreet whether they have bet or raised on the current street
  * @param postflopBets how many times they have bet or raised since the flop, on any street
+ * @param habits how this player has tended to play in earlier hands
  */
 public record Opponent(int seat, long stack, long streetBet, int preflopRaises, boolean calledPreflopRaise,
-        boolean betThisStreet, int postflopBets) {
+        boolean betThisStreet, int postflopBets, Tendencies habits) {
+
+    /** An opponent seen in this hand but with no history. */
+    public Opponent(int seat, long stack, long streetBet, int preflopRaises, boolean calledPreflopRaise,
+            boolean betThisStreet, int postflopBets) {
+        this(seat, stack, streetBet, preflopRaises, calledPreflopRaise, betThisStreet, postflopBets,
+                Tendencies.TYPICAL);
+    }
 
     /** An opponent about whom nothing is known. */
     public static Opponent unknown() {

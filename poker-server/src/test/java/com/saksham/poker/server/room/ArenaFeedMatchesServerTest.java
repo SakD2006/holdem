@@ -12,7 +12,6 @@ import com.saksham.poker.common.card.Card;
 import com.saksham.poker.common.protocol.MessageCodec;
 import com.saksham.poker.common.protocol.ServerMessage;
 import com.saksham.poker.common.protocol.server.HoleCards;
-import com.saksham.poker.common.protocol.server.Showdown;
 import com.saksham.poker.engine.card.Deck;
 import com.saksham.poker.engine.event.ActionRequested;
 import com.saksham.poker.engine.event.GameEvent;
@@ -42,6 +41,7 @@ class ArenaFeedMatchesServerTest {
         List<Card> cards = new ArrayList<>(Deck.standardOrder());
         int compared = 0;
         int holeCardsSeen = 0;
+        int showdowns = 0;
         for (int handNo = 1; handNo <= 300; handNo++) {
             int players = 2 + random.nextInt(5);
             Map<Integer, Long> stacks = new TreeMap<>();
@@ -60,15 +60,13 @@ class ArenaFeedMatchesServerTest {
                     for (int viewer = -1; viewer < players; viewer++) {
                         Optional<ServerMessage> server = EventRouter.messageFor(event, viewer, handNo);
                         Optional<ServerMessage> arena = SeatFeed.messageFor(event, viewer, handNo);
-                        if (server.isPresent() && server.get() instanceof Showdown) {
-                            // The one thing the arena leaves out: bots do not yet use shown hands.
-                            assertThat(arena).isEmpty();
-                            continue;
-                        }
                         assertThat(arena.isPresent()).as("%s for seat %d", event, viewer).isEqualTo(server.isPresent());
                         if (server.isPresent()) {
                             assertThat(codec.encode(arena.get(), 1)).isEqualTo(codec.encode(server.get(), 1));
                             compared++;
+                            if (arena.get() instanceof com.saksham.poker.common.protocol.server.Showdown) {
+                                showdowns++;
+                            }
                             if (arena.get() instanceof HoleCards dealt) {
                                 assertThat(dealt.seat()).as("a seat sees only its own cards").isEqualTo(viewer);
                                 holeCardsSeen++;
@@ -83,6 +81,7 @@ class ArenaFeedMatchesServerTest {
             }
         }
         assertThat(compared).isGreaterThan(10_000);
+        assertThat(showdowns).as("hands that were shown down reached the bots too").isGreaterThan(50);
         assertThat(holeCardsSeen).isGreaterThan(600);
     }
 
