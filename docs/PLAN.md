@@ -316,8 +316,11 @@ more than the margin, and it does not lose to the simulation bot.
 - [x] Trainer project (`trainer/`, Rust, outside the Maven build; Python for experiments): CFR,
       CFR+, Linear and Discounted CFR, external-sampling MCCFR, exact exploitability. Checked on
       Kuhn and Leduc poker against published values.
-- [ ] Heads-up No-Limit Hold'em as a trainer game: 100 big blinds, a few bet sizes.
-- [ ] Abstraction: group similar hands by equity distribution on each street.
+- [x] Heads-up No-Limit Hold'em as a trainer game: 100 big blinds, a few bet sizes.
+- [x] Abstraction, first version: 169 starting hands, E[HS²] buckets on flop and turn, river
+      strength buckets; duplicate matches to check a trained strategy learned something.
+- [ ] Training on all cores; local best response to measure strength.
+- [ ] Better abstraction: k-means on equity histograms.
 - [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
 - [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
 - [ ] Arena results for every level against every other.

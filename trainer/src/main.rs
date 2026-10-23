@@ -3,6 +3,9 @@
 //!   trainer solve --game leduc --algo dcfr --iterations 10000 [--points 40] [--seed 1]
 //!                 [--csv runs/leduc-dcfr.csv] [--strategy runs/leduc-dcfr.txt]
 //!   trainer info --game leduc
+//!   trainer abstraction --out runs/abstraction-50.bin [--buckets 50]
+//!   trainer holdem --abstraction runs/abstraction-50.bin --iterations 1000000 [--points 6]
+//!                  [--deals 20000] [--seed 1] [--strategy FILE]
 //!
 //! Algorithms: cfr, cfr+, lcfr, dcfr (whole tree); mccfr, lmccfr (external sampling).
 
@@ -11,10 +14,14 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::Instant;
 
 use holdem_trainer::game::Game;
 use holdem_trainer::games::{Kuhn, Leduc};
+use holdem_trainer::holdem::abstraction::{Abstraction, Bucketer, BuildOptions, CategoryBuckets};
+use holdem_trainer::holdem::game::Holdem;
+use holdem_trainer::holdem::play::{duel, CallingStation, RandomAgent, TableAgent};
 use holdem_trainer::solver::best_response::{expected_values, exploitability};
 use holdem_trainer::solver::cfr::{Cfr, Variant};
 use holdem_trainer::solver::mccfr::ExternalSampling;
@@ -23,7 +30,10 @@ use holdem_trainer::solver::{Solver, Uniform};
 const USAGE: &str = "usage:
   trainer solve --game kuhn|leduc --algo cfr|cfr+|lcfr|dcfr|mccfr|lmccfr --iterations N
                 [--points P] [--seed S] [--csv FILE] [--strategy FILE]
-  trainer info --game kuhn|leduc";
+  trainer info --game kuhn|leduc
+  trainer abstraction --out FILE [--buckets B] [--seed S]
+  trainer holdem --abstraction FILE|categories --iterations N [--points P] [--deals D] [--seed S]
+                 [--strategy FILE]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -39,6 +49,12 @@ fn main() -> ExitCode {
 fn run(args: &[String]) -> Result<(), String> {
     let (command, rest) = args.split_first().ok_or("no command given")?;
     let options = parse_options(rest)?;
+    if command == "abstraction" {
+        return build_abstraction(&options);
+    }
+    if command == "holdem" {
+        return train_holdem(&options);
+    }
     let game = options.get("game").map(String::as_str).ok_or("--game is required")?;
     match (command.as_str(), game) {
         ("info", "kuhn") => info(|| Kuhn),
@@ -68,6 +84,82 @@ fn number(options: &HashMap<String, String>, name: &str, default: u64) -> Result
         None => Ok(default),
         Some(text) => text.replace('_', "").parse().map_err(|_| format!("--{name} must be a whole number")),
     }
+}
+
+fn build_abstraction(options: &HashMap<String, String>) -> Result<(), String> {
+    let out = options.get("out").ok_or("--out is required")?;
+    let buckets = number(options, "buckets", 50)? as usize;
+    if !(2..=255).contains(&buckets) {
+        return Err("--buckets must be between 2 and 255".into());
+    }
+    let build = BuildOptions {
+        flop_buckets: buckets,
+        turn_buckets: buckets,
+        river_buckets: buckets,
+        seed: number(options, "seed", 1)?,
+        ..BuildOptions::default()
+    };
+    let started = Instant::now();
+    let abstraction =
+        Abstraction::build(&build, |step| eprintln!("[{:>6.1}s] {step}", started.elapsed().as_secs_f64()));
+    abstraction.save(Path::new(out)).map_err(io)?;
+    eprintln!("[{:>6.1}s] written to {out}", started.elapsed().as_secs_f64());
+    Ok(())
+}
+
+/// Trains heads-up Hold'em with linear MCCFR and, at each checkpoint, plays duplicate matches
+/// against an always-call player and a random player.
+fn train_holdem(options: &HashMap<String, String>) -> Result<(), String> {
+    let source = options.get("abstraction").ok_or("--abstraction is required (a file, or `categories`)")?;
+    let started = Instant::now();
+    let buckets: Arc<dyn Bucketer> = if source == "categories" {
+        Arc::new(CategoryBuckets)
+    } else {
+        Arc::new(Abstraction::load(Path::new(source)).map_err(|e| format!("could not read {source}: {e}"))?)
+    };
+    eprintln!("abstraction ready in {:.1}s: buckets {:?}", started.elapsed().as_secs_f64(), buckets.sizes());
+    let iterations = number(options, "iterations", 1_000_000)?;
+    let points = number(options, "points", 6)?.max(1);
+    let deals = number(options, "deals", 20_000)?;
+    let seed = number(options, "seed", 1)?;
+    let mut solver =
+        ExternalSampling::new(Holdem::new(buckets.clone()), seed, true, options.contains_key("strategy"));
+    let game = Holdem::new(buckets);
+
+    println!(
+        "{:>12} {:>9} {:>10} {:>10} {:>22} {:>22}",
+        "iteration", "seconds", "iter/s", "infosets", "vs always-call bb/100", "vs random bb/100"
+    );
+    let mut training = 0.0;
+    for checkpoint in log_spaced(iterations, points) {
+        let lap = Instant::now();
+        let before = solver.iterations();
+        while solver.iterations() < checkpoint {
+            solver.iterate();
+        }
+        let seconds = lap.elapsed().as_secs_f64();
+        training += seconds;
+        let agent = TableAgent(solver.table());
+        let calls = duel(&game, &agent, &CallingStation, deals, seed ^ 0xCA11);
+        let random = duel(&game, &agent, &RandomAgent, deals, seed ^ 0x5EED);
+        println!(
+            "{:>12} {:>9.1} {:>10.0} {:>10} {:>14.1} ±{:>6.1} {:>14.1} ±{:>6.1}",
+            checkpoint,
+            training,
+            (checkpoint - before) as f64 / seconds.max(1e-9),
+            solver.table().nodes.len(),
+            calls.bb_per_100,
+            calls.margin,
+            random.bb_per_100,
+            random.margin
+        );
+    }
+    if let Some(path) = options.get("strategy") {
+        let mut out = create(path)?;
+        solver.table().write_strategy(&mut out).map_err(io)?;
+        eprintln!("strategy written to {path}");
+    }
+    Ok(())
 }
 
 fn info<G: Game>(make: impl Fn() -> G) -> Result<(), String> {

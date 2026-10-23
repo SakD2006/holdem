@@ -1,5 +1,7 @@
 //! What a solver needs to know about a game: two players, zero-sum, with chance and hidden
-//! information. Kuhn and Leduc poker implement it now; abstracted Hold'em will later.
+//! information. Kuhn poker, Leduc poker and abstracted heads-up Hold'em implement it.
+
+use crate::rng::Rng;
 
 /// An action, as the game numbers it. Solvers keep their numbers per information set in the
 /// order `legal_actions` returns them.
@@ -28,6 +30,14 @@ pub trait Game {
 
     /// At a chance node: every outcome with its probability. The probabilities add up to 1.
     fn chance_outcomes(&self, state: &Self::State) -> Vec<(Action, f64)>;
+
+    /// At a chance node: one outcome drawn with its probability. Games too large to list their
+    /// outcomes (Hold'em deals) override this; sampling solvers only ever call this.
+    fn sample_chance(&self, state: &Self::State, rng: &mut Rng) -> Action {
+        let outcomes = self.chance_outcomes(state);
+        let probs: Vec<f64> = outcomes.iter().map(|(_, p)| *p).collect();
+        outcomes[rng.pick(&probs)].0
+    }
 
     /// At a player's node: what that player may do.
     fn legal_actions(&self, state: &Self::State) -> Vec<Action>;

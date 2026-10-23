@@ -20,6 +20,11 @@ sampled run replays exactly from its seed.
 | `src/solver/cfr.rs` | CFR over the whole tree: vanilla, CFR+, Linear CFR, Discounted CFR |
 | `src/solver/mccfr.rs` | External-sampling Monte Carlo CFR, plain and linear (the Pluribus method) |
 | `src/solver/best_response.rs` | Exact best response, exploitability and expected value |
+| `src/holdem/eval.rs` | Hand evaluator, a port of `poker-ai`'s `FastHand` (same card numbers and scores) |
+| `src/holdem/canon.rs` | Canonical keys: deals that differ only by suit names share one |
+| `src/holdem/abstraction.rs` | Card buckets: 169 starting hands; E[HS²] buckets on flop and turn; river strength |
+| `src/holdem/game.rs` | Heads-up No-Limit Hold'em, 100 big blinds, abstracted bets |
+| `src/holdem/play.rs` | Duplicate matches between agents, in bb/100 with a 95% interval |
 | `src/main.rs` | The `trainer` command |
 | `py/compare.py` | Runs several solvers on one game, writes a CSV and an SVG chart |
 
@@ -42,6 +47,15 @@ unique strategy (call a bet with a queen one time in three); Leduc's equilibrium
 On a game this small, walking the whole tree wins. Hold'em is far too large to walk, which is why
 the blueprint will use sampling.
 
+**Hold'em, first run** (50 buckets a street, linear MCCFR, one core, 2 million iterations in
+8 minutes, 787,000 information sets): +362 ±21 bb/100 against a player who always calls and
++274 ±27 against a random player, over 40,000 duplicate hands each. That shows it learned;
+it does not measure strength, which needs a best-response estimate (next).
+
+The checks: the evaluator puts all 2,598,960 five-card and 133,784,560 seven-card hands in the
+right categories; the canonical deals number 1,286,792 flops and 13,960,050 turns, as published
+(Waugh, 2013); 20,000 random hands keep every rule and conserve chips.
+
 ## Commands
 
 Run from `trainer/`:
@@ -58,15 +72,24 @@ From the repository root:
 python3 trainer/py/compare.py --game leduc --iterations 5000  # every solver; CSV + chart in trainer/runs/
 ```
 
+Hold'em (from `trainer/`):
+
+```bash
+cargo run --release -- abstraction --out runs/abstraction-50.bin --buckets 50    # about 3 minutes, 137 MB
+cargo run --release -- holdem --abstraction runs/abstraction-50.bin --iterations 2000000
+cargo run --release -- holdem --abstraction categories --iterations 200000        # no file needed
+```
+
 Algorithms: `cfr`, `cfr+`, `lcfr`, `dcfr` (whole tree); `mccfr`, `lmccfr` (sampled).
 `--strategy FILE` writes the learned strategy, one information set per line, for example
 `Q -:cr    fold,call,raise    0.0000,0.9312,0.0688`.
 
 ## Next
 
-1. Heads-up No-Limit Hold'em as a `Game`, reusing the arena's rules: 100 big blinds, a fixed
-   set of bet sizes.
-2. Card abstraction: group hands by their equity distribution on each street (k-means).
-3. Train a blueprint with linear MCCFR on all cores; measure it with local best response.
-4. Export the blueprint for `poker-ai`, play it in the arena against the current bots.
+1. Speed: training on all cores with a shared lock-free table, and fewer allocations per
+   iteration (now about 4,000 iterations a second on one core).
+2. Strength: local best response (LBR), the standard estimate of how much a perfect-ish
+   opponent wins against the strategy.
+3. Better buckets: k-means on equity histograms.
+4. Export the blueprint for `poker-ai` and play it in the arena against the current bots.
 5. Real-time search, then opponent modelling on top (restricted Nash response).

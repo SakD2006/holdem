@@ -35,9 +35,7 @@ impl<G: Game> ExternalSampling<G> {
         match self.game.turn(state) {
             Turn::Terminal => self.game.payoff(state, traverser),
             Turn::Chance => {
-                let outcomes = self.game.chance_outcomes(state);
-                let probs: Vec<f64> = outcomes.iter().map(|(_, p)| *p).collect();
-                let (outcome, _) = outcomes[self.rng.pick(&probs)];
+                let outcome = self.game.sample_chance(state, &mut self.rng);
                 let child = self.game.apply(state, outcome);
                 self.walk(&child, traverser)
             }

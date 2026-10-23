@@ -6,5 +6,6 @@
 
 pub mod game;
 pub mod games;
+pub mod holdem;
 pub mod rng;
 pub mod solver;
