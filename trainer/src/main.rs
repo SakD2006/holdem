@@ -43,6 +43,7 @@ const USAGE: &str = "usage:
   trainer holdem --abstraction FILE|categories --iterations N [--points P] [--deals D]
                  [--lbr-deals L] [--seed S] [--threads T] [--table-bits B] [--epoch E] [--save FILE]
   trainer lbr --abstraction FILE|categories --blueprint FILE [--deals D] [--seed S] [--threads T]
+              [--by-street yes]
   trainer duel --abstraction FILE|categories --a FILE --b FILE [--deals D] [--seed S]";
 
 fn main() -> ExitCode {
@@ -170,11 +171,8 @@ fn train_holdem(options: &HashMap<String, String>) -> Result<(), String> {
         training += seconds;
         let agent = TableAgent(solver.table());
         let calls = duel(&game, &agent, &CallingStation, deals, seed ^ 0xCA11);
-        let lbr = local_best_response(
-            &game,
-            solver.table(),
-            &LbrOptions { deals: lbr_deals, seed: seed ^ 0x1B12, threads },
-        );
+        let lbr =
+            local_best_response(&game, solver.table(), &LbrOptions::new(lbr_deals, seed ^ 0x1B12, threads));
         println!(
             "{:>12} {:>9.1} {:>10.0} {:>10} {:>14.1} ±{:>6.1} {:>14.0} ±{:>6.0}",
             checkpoint,
@@ -226,11 +224,32 @@ fn measure_lbr(options: &HashMap<String, String>) -> Result<(), String> {
     let path = options.get("blueprint").ok_or("--blueprint is required")?;
     let blueprint = Blueprint::load(Path::new(path)).map_err(|e| format!("could not read {path}: {e}"))?;
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get()) as u64;
-    let lbr_options = LbrOptions {
-        deals: number(options, "deals", 50_000)?,
-        seed: number(options, "seed", 1)?,
-        threads: number(options, "threads", cores)? as usize,
-    };
+    let mut lbr_options = LbrOptions::new(
+        number(options, "deals", 50_000)?,
+        number(options, "seed", 1)?,
+        number(options, "threads", cores)? as usize,
+    );
+    if options.get("by-street").map(String::as_str) == Some("yes") {
+        println!("{path}: {} information sets", blueprint.len());
+        println!("LBR plays its best response only on the street named, and the strategy elsewhere:");
+        let names = ["preflop", "flop", "turn", "river", "postflop", "all"];
+        for (i, name) in names.iter().enumerate() {
+            lbr_options.streets = match i {
+                4 => [false, true, true, true],
+                5 => [true; 4],
+                _ => std::array::from_fn(|s| s == i),
+            };
+            let started = Instant::now();
+            let result = local_best_response(&game, &blueprint, &lbr_options);
+            println!(
+                "  {name:<8} {:>6.0} ±{:>4.0} mbb/hand  ({:.0}s)",
+                result.bb_per_100 * 10.0,
+                result.margin * 10.0,
+                started.elapsed().as_secs_f64()
+            );
+        }
+        return Ok(());
+    }
     let started = Instant::now();
     let result = local_best_response(&game, &blueprint, &lbr_options);
     let calls = duel(&game, &TableAgent(&blueprint), &CallingStation, lbr_options.deals, lbr_options.seed);

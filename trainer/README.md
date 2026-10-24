@@ -56,41 +56,31 @@ walks share one deal, the river buckets of both players share one set of 1,081 h
 and all threads update one table without locks (64-bit floats: 32-bit ones stopped absorbing
 updates at the busiest nodes). 50 million iterations take about 5 minutes.
 
-**Hold'em strength.** Local best response over 100,000 hands, in milli-big-blinds per hand
-(lower is better; ±130 each), 50 buckets a street:
+**Hold'em strength.** Measured with local best response (LBR) in milli-big-blinds per hand,
+lower is better. LBR plays the strategy before the flop and its best response after it (its
+check-down rule plays the preflop badly, which would hide later leaks).
 
-| Iterations | Seed 1 | Seed 2 |
-|---|---|---|
-| 200,000 | 881 | 569 |
-| 600,000 | 117 | 475 |
-| 2 million | 89 | 423 |
-| 6 million | 557 | 538 |
-| 20 million | 728 | 560 |
+A seeding bug made the first measurements less certain than they claimed: threads were seeded
+with `seed ^ (thread · step)`, and since the generator itself only adds `step` each draw,
+several threads drew the same numbers a few draws apart. Their hands overlapped, so margins
+were too small. Every parallel job now gets `Rng::stream(seed, index)`, which hashes the two
+together; an LBR that never deviates now breaks even. Earlier tables (50 buckets; 200
+buckets, E[HS²] against histograms) are not repeated here: their margins were understated.
 
-Exploitability falls, then rises again. The solver is not at fault: the 20-million strategy beats
-the 2-million one head to head (+18.5 ±3.6 and +13.5 ±3.6 bb/100) and the 200,000 one by
-+68.1 ±5.0. It is overfitting to the abstraction (Johanson et al., 2013): the longer it trains,
-the better it plays the bucketed game, and the more an opponent who sees exact cards can use
-the differences that 50 buckets hide. The fix is a finer abstraction, and later real-time search,
-which plays with the exact cards.
+200 histogram buckets a street, 100,000 deals (200,000 hands), ±75 or less:
 
-**200 buckets a street** (LBR over 100,000 hands, ±130 to ±140, one seed). "Histogram" groups flop
-and turn hands by k-means on their histogram of river strength over the cards to come
-(distribution-aware, Johanson et al., 2013); "E[HS²]" is the first method with more buckets.
-About 3.08 million information sets either way; 60 million iterations take 7 minutes.
+| Iterations | Preflop only | Flop only | Turn only | River only | Postflop (standard) |
+|---|---|---|---|---|---|
+| 2 million | −577 | −109 | 91 | 276 | 479 |
+| 20 million | −384 | −10 | 220 | 586 | 635 |
+| 60 million | −255 | −9 | 190 | 736 | 793 |
 
-| Iterations | E[HS²], 200 | Histogram, 200 |
-|---|---|---|
-| 2 million | 277 | 283 |
-| 6 million | 361 | 365 |
-| 20 million | 411 | 232 |
-| 60 million | 546 | 437 |
-
-Four times the buckets lowers exploitability after long training (546 against the 560 to 728
-that 50 buckets reached by 20 million), and histograms look better again, but each gap is
-within about 1.5 margins, and both still rise with training. The flop and turn are not the
-main leak; the next suspects are the river buckets (strength against a random hand, not the
-hands the opponent actually holds) and forgetting earlier streets' buckets.
+"River only" means LBR plays its best response on the river and the strategy everywhere else,
+so it measures what the river alone gives away. The flop is sound, the turn leaks a little,
+and the river leaks a lot, more the longer the strategy trains: the training sharpens play in
+the river buckets, and an opponent who knows exact cards punishes what those buckets hide. A
+river bucket is strength against a random hand, which says little about strength against the
+hands an opponent still holds after three rounds of betting.
 
 The checks: the evaluator puts all 2,598,960 five-card and 133,784,560 seven-card hands in the
 right categories; the canonical deals number 1,286,792 flops and 13,960,050 turns, as published
@@ -128,8 +118,8 @@ Algorithms: `cfr`, `cfr+`, `lcfr`, `dcfr` (whole tree); `mccfr`, `lmccfr` (sampl
 
 ## Next
 
-1. Better buckets: many more of them (200 or more a street), and k-means on equity
-   histograms so draws and made hands of the same average strength are told apart. Watch LBR.
+1. The river: either buckets that know more (strength against several kinds of opponent hand,
+   "OCHS"), or solving the river during play with exact cards (real-time search, as in
+   Libratus and Pluribus), which removes river card abstraction altogether.
 2. Export the blueprint for `poker-ai` and play it in the arena against the current bots.
-3. Real-time search on the turn and river with exact cards, then opponent modelling on top
-   (restricted Nash response).
+3. Opponent modelling on top of search (restricted Nash response).

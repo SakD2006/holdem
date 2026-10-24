@@ -14,7 +14,8 @@
 //!   often the strategy folds to it and `W′` is the winning chance against the hands that call.
 //!
 //! What LBR wins on average is a lower bound on the strategy's exploitability: a full best
-//! response would win at least as much. Here LBR uses the same bet sizes as the strategy, so it
+//! response would win at least as much. By default LBR plays the strategy itself before the
+//! flop and its best response after it. Here LBR uses the same bet sizes as the strategy, so it
 //! measures how well the strategy plays its own game.
 
 use std::thread;
@@ -36,6 +37,19 @@ pub struct LbrOptions {
     pub deals: u64,
     pub seed: u64,
     pub threads: usize,
+    /// The streets (preflop, flop, turn, river) on which LBR plays its best response. On the
+    /// others it plays the strategy itself, so a run with one street switched on measures what
+    /// can be won on that street alone.
+    pub streets: [bool; 4],
+}
+
+impl LbrOptions {
+    /// LBR on the flop, turn and river; it plays the strategy before the flop. Its rule (value
+    /// an action as if the hand were then checked down) plays the preflop badly, and would hide
+    /// leaks on later streets; this is the usual way to run it.
+    pub fn new(deals: u64, seed: u64, threads: usize) -> Self {
+        LbrOptions { deals, seed, threads, streets: [false, true, true, true] }
+    }
 }
 
 /// LBR's winnings against `policy`, in big blinds per 100 hands.
@@ -48,7 +62,7 @@ pub fn local_best_response<P: Policy>(game: &Holdem, policy: &P, options: &LbrOp
                 let combos = &combos;
                 scope.spawn(move || {
                     let share = options.deals / threads + u64::from(t < options.deals % threads);
-                    let mut rng = Rng::new(options.seed ^ (t + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+                    let mut rng = Rng::stream(options.seed, t);
                     let (mut sum, mut sum_sq) = (0.0, 0.0);
                     for _ in 0..share {
                         let cards = deal(&mut rng, 9);
@@ -56,7 +70,16 @@ pub fn local_best_response<P: Policy>(game: &Holdem, policy: &P, options: &LbrOp
                         let board = [cards[4], cards[5], cards[6], cards[7], cards[8]];
                         let mut per_deal = 0.0;
                         for lbr_seat in 0..2 {
-                            per_deal += play(game, policy, combos, holes, &board, lbr_seat, &mut rng);
+                            per_deal += play(
+                                game,
+                                policy,
+                                combos,
+                                holes,
+                                &board,
+                                lbr_seat,
+                                options.streets,
+                                &mut rng,
+                            );
                         }
                         per_deal /= 2.0;
                         sum += per_deal;
@@ -76,6 +99,7 @@ pub fn local_best_response<P: Policy>(game: &Holdem, policy: &P, options: &LbrOp
 }
 
 /// One hand with LBR in `lbr_seat`; returns what LBR won, in big blinds.
+#[allow(clippy::too_many_arguments)]
 fn play<P: Policy>(
     game: &Holdem,
     policy: &P,
@@ -83,6 +107,7 @@ fn play<P: Policy>(
     holes: [[Card; 2]; 2],
     board: &[Card; 5],
     lbr_seat: usize,
+    streets: [bool; 4],
     rng: &mut Rng,
 ) -> f64 {
     let me = holes[lbr_seat];
@@ -121,10 +146,13 @@ fn play<P: Policy>(
             let choice = rng.pick(&probs);
             update_range(game, policy, &state, &legal, choice, &buckets, &mut range);
             state = game.apply(&state, legal[choice]);
-        } else {
+        } else if streets[street] {
             let action =
                 best_action(game, policy, &state, &legal, me, &board[..shown(street)], &buckets, &range, rng);
             state = game.apply(&state, action);
+        } else {
+            let probs = strategy_or_call(policy, game.info_key(&state, player), &legal);
+            state = game.apply(&state, legal[rng.pick(&probs)]);
         }
     }
 }

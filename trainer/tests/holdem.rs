@@ -87,7 +87,8 @@ fn local_best_response_crushes_strategies_that_ignore_their_cards() {
     use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
     use holdem_trainer::solver::{Table, Uniform};
     let game = game();
-    let options = LbrOptions { deals: 1500, seed: 3, threads: 4 };
+    let mut options = LbrOptions::new(1500, 3, 4);
+    options.streets = [true; 4];
     // An empty table never trained anywhere, so it checks and calls every time.
     let against_calls = local_best_response(&game, &Table::new(false), &options);
     let against_random = local_best_response(&game, &Uniform, &options);
@@ -103,11 +104,22 @@ fn training_makes_a_strategy_harder_to_exploit() {
     let mut solver = ParallelMccfr::new(game(), 20, 4, 50_000, 5);
     solver.run_until(400_000);
     let game = game();
-    let options = LbrOptions { deals: 1500, seed: 4, threads: 4 };
+    let options = LbrOptions::new(6000, 4, 12);
     let trained = local_best_response(&game, solver.table(), &options);
     let random = local_best_response(&game, &Uniform, &options);
     assert!(
         trained.bb_per_100 + trained.margin < random.bb_per_100 - random.margin,
         "{trained:?} vs {random:?}"
     );
+}
+
+#[test]
+fn lbr_that_never_deviates_breaks_even() {
+    use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
+    use holdem_trainer::solver::Uniform;
+    // Playing the strategy on every street is the strategy against itself: no edge.
+    let mut options = LbrOptions::new(30_000, 5, 12);
+    options.streets = [false; 4];
+    let result = local_best_response(&game(), &Uniform, &options);
+    assert!(result.bb_per_100.abs() < result.margin, "{result:?}");
 }

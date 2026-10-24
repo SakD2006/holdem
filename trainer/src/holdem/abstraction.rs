@@ -752,7 +752,7 @@ fn parallel_map<T: Copy + Default + Send>(
                 let Some((index, slice)) = job else { return };
                 for (offset, value) in slice.iter_mut().enumerate() {
                     let key = keys[index * chunk + offset];
-                    let mut rng = Rng::new(seed ^ key.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+                    let mut rng = Rng::stream(seed, key);
                     *value = f(key, &mut rng);
                 }
             });

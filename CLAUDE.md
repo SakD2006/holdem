@@ -119,8 +119,9 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Bots: `poker-ai` holds the strategies (pure, tested alone); `server.player.AiController` runs one
   in a seat. `AiTableTest` plays hundreds of hands with real bots on real threads and is the test to
   run after touching either. `poker-bot-client` is something else: network test players for soak runs.
-- In the trainer, strength is local best response (`trainer lbr`), in mbb/hand, lower is better, ±130 at
-  50,000 deals. Head-to-head wins between two strategies of the same abstraction do not show strength:
+- In the trainer, strength is local best response (`trainer lbr`, postflop by default; `--by-street yes`
+  splits it), in mbb/hand, lower is better, about ±75 at 100,000 deals. Seed parallel jobs with
+  `Rng::stream(seed, index)`, never `Rng::new(seed ^ index)`: the latter gives overlapping streams. Head-to-head wins between two strategies of the same abstraction do not show strength:
   more training can beat less training and still be easier to exploit (overfitting to the buckets).
 - The arena (`poker-ai`, `ArenaMain`) is how bot strength is measured: about 100,000 hands a
   second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,

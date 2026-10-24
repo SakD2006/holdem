@@ -324,7 +324,8 @@ more than the margin, and it does not lose to the simulation bot.
       iterations.
 - [x] Better abstraction: k-means on river-strength histograms, 200 buckets a street. Lower
       exploitability than 50 buckets after long training, but it still rises with training.
-- [ ] Find where LBR wins (by street) and fix the largest leak.
+- [x] Find where LBR wins (by street): the river, growing with training (276 to 736 mbb/hand).
+- [ ] Fix the river leak: better river buckets, or real-time search with exact cards.
 - [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
 - [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
 - [ ] Arena results for every level against every other.

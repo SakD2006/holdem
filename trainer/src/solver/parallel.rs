@@ -328,7 +328,7 @@ where
                 let game = &self.game;
                 let table = &self.table;
                 scope.spawn(move || {
-                    let mut rng = Rng::new(batch_seed ^ (t + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+                    let mut rng = Rng::stream(batch_seed, t);
                     let root = game.root();
                     for _ in 0..share {
                         // Both players' walks share one deal: dealing (bucketing nine cards)
