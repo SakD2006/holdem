@@ -116,10 +116,26 @@ Algorithms: `cfr`, `cfr+`, `lcfr`, `dcfr` (whole tree); `mccfr`, `lmccfr` (sampl
 `--strategy FILE` writes the learned strategy, one information set per line, for example
 `Q -:cr    fold,call,raise    0.0000,0.9312,0.0688`.
 
+**River buckets by opponent cluster (OCHS).** To test whether the river leak comes from river
+buckets knowing too little, the river was rebuilt with OCHS (Johanson et al., 2013): the 169
+starting hands are grouped into 8 clusters, and a river hand is described by its chance of
+beating each cluster; k-means on those vectors gives 200 buckets (flop and turn unchanged):
+
+| Iterations | River only, strength | River only, OCHS | Postflop, strength | Postflop, OCHS |
+|---|---|---|---|---|
+| 2 million | 276 | 359 | 479 | 513 |
+| 20 million | 586 | 635 | 635 | 614 |
+| 60 million | 736 | 695 | 793 | 669 |
+
+No difference beyond the margins (about ±60 to ±75), and the river leak still grows with
+training. Richer buckets do not fix it; the likely cause is bucketing itself, which makes every
+hand in a bucket play alike, so sharper training draws lines between buckets that an opponent
+with exact cards can read. The standard remedy is to solve the river during play with exact
+cards (river re-solving).
+
 ## Next
 
-1. The river: either buckets that know more (strength against several kinds of opponent hand,
-   "OCHS"), or solving the river during play with exact cards (real-time search, as in
-   Libratus and Pluribus), which removes river card abstraction altogether.
+1. River re-solving: at the river, solve the remaining game for every hand of both ranges with
+   CFR+, starting from the ranges the blueprint implies, and play the exact hand's strategy.
 2. Export the blueprint for `poker-ai` and play it in the arena against the current bots.
 3. Opponent modelling on top of search (restricted Nash response).

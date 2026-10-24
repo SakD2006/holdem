@@ -19,11 +19,12 @@ use std::thread;
 
 use super::canon;
 use super::eval::{score, Card};
+use super::ochs::{Ochs, GROUPS};
 use crate::rng::Rng;
 
 pub const PREFLOP_BUCKETS: usize = 169;
 const MAGIC: &[u8; 8] = b"HOLDEMAB";
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 /// How flop and turn hands are put in buckets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +35,15 @@ pub enum Method {
     /// ("distribution-aware"; Johanson et al., 2013). Tells draws from made hands that have the
     /// same average.
     Histogram,
+}
+
+/// How river hands are put in buckets when building.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RiverMethod {
+    /// Strength against a random hand.
+    Strength,
+    /// Strength against each cluster of starting hands (see `ochs`).
+    Ochs,
 }
 
 /// Bins of a river-strength histogram.
@@ -57,6 +67,9 @@ pub struct BuildOptions {
     pub histogram_flop_runouts: usize,
     pub histogram_opponents: usize,
     pub kmeans_passes: usize,
+    pub river: RiverMethod,
+    /// OCHS: sample river deals the bucket centres are learned from.
+    pub river_samples: usize,
     pub seed: u64,
 }
 
@@ -74,6 +87,8 @@ impl Default for BuildOptions {
             histogram_flop_runouts: 96,
             histogram_opponents: 64,
             kmeans_passes: 25,
+            river: RiverMethod::Strength,
+            river_samples: 1_500_000,
             seed: 1,
         }
     }
@@ -169,21 +184,38 @@ impl Bucketer for CategoryBuckets {
     }
 }
 
+/// How river hands are put in buckets.
+pub enum River {
+    /// Equal-sized buckets by strength against a random hand; the values are the boundaries.
+    Strength(Vec<f32>),
+    /// Nearest of a set of centres, by strength against clusters of starting hands.
+    Ochs(Ochs),
+}
+
+impl River {
+    fn bucket_strength(edges: &[f32], strength: f32) -> u16 {
+        edges.partition_point(|e| *e <= strength) as u16
+    }
+}
+
 pub struct Abstraction {
     pub buckets: [usize; 4],
     flop: KeyTable,
     turn: KeyTable,
-    /// Hand strengths that separate river buckets.
-    river_edges: Vec<f32>,
+    river: River,
 }
 
 impl Bucketer for Abstraction {
     fn buckets_for(&self, hole: [Card; 2], board: &[Card; 5]) -> [u16; 4] {
+        let river = match &self.river {
+            River::Strength(edges) => River::bucket_strength(edges, river_strength(hole, board)),
+            River::Ochs(ochs) => ochs.bucket(&ochs.features(&[hole], board)[0]),
+        };
         [
             preflop_class(hole) as u16,
             self.flop.bucket(canon::key(hole, &board[..3])) as u16,
             self.turn.bucket(canon::key(hole, &board[..4])) as u16,
-            self.river_edges.partition_point(|edge| *edge <= river_strength(hole, board)) as u16,
+            river,
         ]
     }
 
@@ -196,11 +228,17 @@ impl Bucketer for Abstraction {
         let combos = all_combos();
         if board.len() == 5 {
             let board: &[Card; 5] = board.try_into().expect("five cards");
-            let strengths = all_river_strengths(board);
-            return strengths
-                .iter()
-                .map(|s| if s.is_nan() { 0 } else { self.river_edges.partition_point(|e| e <= s) as u16 })
-                .collect();
+            return match &self.river {
+                River::Strength(edges) => all_river_strengths(board)
+                    .iter()
+                    .map(|s| if s.is_nan() { 0 } else { River::bucket_strength(edges, *s) })
+                    .collect(),
+                River::Ochs(ochs) => ochs
+                    .features_all(board)
+                    .iter()
+                    .map(|f| f.as_ref().map_or(0, |f| ochs.bucket(f)))
+                    .collect(),
+            };
         }
         combos
             .into_iter()
@@ -215,14 +253,23 @@ impl Bucketer for Abstraction {
     }
 
     fn deal_buckets(&self, holes: [[Card; 2]; 2], board: &[Card; 5]) -> [[u16; 4]; 2] {
-        let strengths = river_strengths(holes, board);
+        let river: [u16; 2] = match &self.river {
+            River::Strength(edges) => {
+                let s = river_strengths(holes, board);
+                [River::bucket_strength(edges, s[0]), River::bucket_strength(edges, s[1])]
+            }
+            River::Ochs(ochs) => {
+                let f = ochs.features(&holes, board);
+                [ochs.bucket(&f[0]), ochs.bucket(&f[1])]
+            }
+        };
         let mut out = [[0u16; 4]; 2];
         for (player, hole) in holes.into_iter().enumerate() {
             out[player] = [
                 preflop_class(hole) as u16,
                 self.flop.bucket(canon::key(hole, &board[..3])) as u16,
                 self.turn.bucket(canon::key(hole, &board[..4])) as u16,
-                self.river_edges.partition_point(|edge| *edge <= strengths[player]) as u16,
+                river[player],
             ];
         }
         out
@@ -243,19 +290,42 @@ impl Abstraction {
                 histogram_buckets(&turns, 4, options.turn_buckets, options, &log),
             ),
         };
-        log("placing river boundaries");
-        let mut rng = Rng::new(options.seed ^ 0xB0B0);
-        let river_sample: Vec<f32> = (0..options.boundary_samples / 5)
-            .map(|_| {
-                let c = deal(&mut rng, 7);
-                river_strength([c[0], c[1]], &[c[2], c[3], c[4], c[5], c[6]])
-            })
-            .collect();
-        Abstraction {
+        let abstraction = Abstraction {
             buckets: [PREFLOP_BUCKETS, options.flop_buckets, options.turn_buckets, options.river_buckets],
             flop: KeyTable { buckets: flop_buckets, keys: flops },
             turn: KeyTable { buckets: turn_buckets, keys: turns },
-            river_edges: edges(river_sample, options.river_buckets),
+            river: River::Strength(Vec::new()),
+        };
+        abstraction.with_river(options, log)
+    }
+
+    /// This abstraction with its river buckets rebuilt by `options.river`, keeping the flop and
+    /// turn, so river methods can be compared on equal terms.
+    pub fn with_river(mut self, options: &BuildOptions, log: impl Fn(&str) + Sync) -> Abstraction {
+        self.river = match options.river {
+            RiverMethod::Strength => {
+                log("placing river boundaries");
+                let mut rng = Rng::new(options.seed ^ 0xB0B0);
+                let sample: Vec<f32> = (0..options.boundary_samples / 5)
+                    .map(|_| {
+                        let c = deal(&mut rng, 7);
+                        river_strength([c[0], c[1]], &[c[2], c[3], c[4], c[5], c[6]])
+                    })
+                    .collect();
+                River::Strength(edges(sample, options.river_buckets))
+            }
+            RiverMethod::Ochs => {
+                River::Ochs(Ochs::build(options.river_buckets, options.river_samples, options.seed, &log))
+            }
+        };
+        self.buckets[3] = options.river_buckets;
+        self
+    }
+
+    pub fn river_method(&self) -> &'static str {
+        match self.river {
+            River::Strength(_) => "strength",
+            River::Ochs(_) => "ochs",
         }
     }
 
@@ -276,21 +346,38 @@ impl Abstraction {
             }
             out.write_all(&table.buckets)?;
         }
-        out.write_all(&(self.river_edges.len() as u32).to_le_bytes())?;
-        for e in &self.river_edges {
-            out.write_all(&e.to_le_bytes())?;
+        match &self.river {
+            River::Strength(edges) => {
+                out.write_all(&[0u8])?;
+                out.write_all(&(edges.len() as u32).to_le_bytes())?;
+                for e in edges {
+                    out.write_all(&e.to_le_bytes())?;
+                }
+            }
+            River::Ochs(ochs) => {
+                out.write_all(&[1u8])?;
+                out.write_all(&ochs.groups)?;
+                out.write_all(&(ochs.centres.len() as u32).to_le_bytes())?;
+                for centre in &ochs.centres {
+                    for x in centre {
+                        out.write_all(&x.to_le_bytes())?;
+                    }
+                }
+            }
         }
         out.flush()
     }
 
+    /// Reads version 2 files and the strength-only version 1.
     pub fn load(path: &Path) -> io::Result<Abstraction> {
         let mut input = BufReader::new(File::open(path)?);
         let mut magic = [0u8; 8];
         input.read_exact(&mut magic)?;
-        if &magic != MAGIC || read_u32(&mut input)? != VERSION {
+        let version = read_u32(&mut input)?;
+        if &magic != MAGIC || !(1..=VERSION).contains(&version) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "not an abstraction file of this version",
+                "not an abstraction file this version reads",
             ));
         }
         let mut buckets = [0usize; 4];
@@ -308,16 +395,39 @@ impl Abstraction {
             input.read_exact(&mut table_buckets)?;
             tables.push(KeyTable { keys, buckets: table_buckets });
         }
-        let edges = read_u32(&mut input)? as usize;
-        let mut river_edges = Vec::with_capacity(edges);
-        for _ in 0..edges {
+        let mut kind = [0u8];
+        if version >= 2 {
+            input.read_exact(&mut kind)?;
+        }
+        let read_f32 = |input: &mut BufReader<File>| -> io::Result<f32> {
             let mut bytes = [0u8; 4];
             input.read_exact(&mut bytes)?;
-            river_edges.push(f32::from_le_bytes(bytes));
-        }
+            Ok(f32::from_le_bytes(bytes))
+        };
+        let river = if kind[0] == 0 {
+            let n = read_u32(&mut input)? as usize;
+            let mut edges = Vec::with_capacity(n);
+            for _ in 0..n {
+                edges.push(read_f32(&mut input)?);
+            }
+            River::Strength(edges)
+        } else {
+            let mut groups = vec![0u8; PREFLOP_BUCKETS];
+            input.read_exact(&mut groups)?;
+            let n = read_u32(&mut input)? as usize;
+            let mut centres = Vec::with_capacity(n);
+            for _ in 0..n {
+                let mut centre = [0f32; GROUPS];
+                for x in centre.iter_mut() {
+                    *x = read_f32(&mut input)?;
+                }
+                centres.push(centre);
+            }
+            River::Ochs(Ochs { groups, centres })
+        };
         let turn = tables.pop().unwrap();
         let flop = tables.pop().unwrap();
-        Ok(Abstraction { buckets, flop, turn, river_edges })
+        Ok(Abstraction { buckets, flop, turn, river })
     }
 }
 

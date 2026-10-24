@@ -4,6 +4,7 @@
 //!                 [--csv runs/leduc-dcfr.csv] [--strategy runs/leduc-dcfr.txt]
 //!   trainer info --game leduc
 //!   trainer abstraction --out runs/abstraction-h200.bin [--buckets 200] [--method histogram|ehs2]
+//!                       [--river strength|ochs] [--base FILE (keep its flop and turn)]
 //!   trainer holdem --abstraction runs/abstraction-50.bin --iterations 1000000 [--points 6]
 //!                  [--deals 20000] [--lbr-deals 5000] [--seed 1] [--threads N] [--table-bits 21]
 //!                  [--epoch 100000] [--save runs/blueprint.bin]
@@ -24,8 +25,8 @@ use std::time::Instant;
 
 use holdem_trainer::game::Game;
 use holdem_trainer::games::{Kuhn, Leduc};
-use holdem_trainer::holdem::abstraction::Method;
 use holdem_trainer::holdem::abstraction::{Abstraction, Bucketer, BuildOptions, CategoryBuckets};
+use holdem_trainer::holdem::abstraction::{Method, RiverMethod};
 use holdem_trainer::holdem::game::Holdem;
 use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
 use holdem_trainer::holdem::play::{duel, CallingStation, TableAgent};
@@ -39,7 +40,8 @@ const USAGE: &str = "usage:
   trainer solve --game kuhn|leduc --algo cfr|cfr+|lcfr|dcfr|mccfr|lmccfr --iterations N
                 [--points P] [--seed S] [--csv FILE] [--strategy FILE]
   trainer info --game kuhn|leduc
-  trainer abstraction --out FILE [--buckets B] [--method histogram|ehs2] [--seed S]
+  trainer abstraction --out FILE [--buckets B] [--method histogram|ehs2] [--river strength|ochs]
+                      [--base FILE] [--seed S]
   trainer holdem --abstraction FILE|categories --iterations N [--points P] [--deals D]
                  [--lbr-deals L] [--seed S] [--threads T] [--table-bits B] [--epoch E] [--save FILE]
   trainer lbr --abstraction FILE|categories --blueprint FILE [--deals D] [--seed S] [--threads T]
@@ -114,8 +116,14 @@ fn build_abstraction(options: &HashMap<String, String>) -> Result<(), String> {
         "ehs2" => Method::Ehs2,
         other => return Err(format!("unknown method {other}: use histogram or ehs2")),
     };
+    let river = match options.get("river").map(String::as_str).unwrap_or("strength") {
+        "strength" => RiverMethod::Strength,
+        "ochs" => RiverMethod::Ochs,
+        other => return Err(format!("unknown river method {other}: use strength or ochs")),
+    };
     let build = BuildOptions {
         method,
+        river,
         flop_buckets: buckets,
         turn_buckets: buckets,
         river_buckets: buckets,
@@ -123,8 +131,14 @@ fn build_abstraction(options: &HashMap<String, String>) -> Result<(), String> {
         ..BuildOptions::default()
     };
     let started = Instant::now();
-    let abstraction =
-        Abstraction::build(&build, |step| eprintln!("[{:>6.1}s] {step}", started.elapsed().as_secs_f64()));
+    let log = |step: &str| eprintln!("[{:>6.1}s] {step}", started.elapsed().as_secs_f64());
+    let abstraction = match options.get("base") {
+        // Keep another file's flop and turn; rebuild only the river.
+        Some(base) => Abstraction::load(Path::new(base))
+            .map_err(|e| format!("could not read {base}: {e}"))?
+            .with_river(&build, log),
+        None => Abstraction::build(&build, log),
+    };
     abstraction.save(Path::new(out)).map_err(io)?;
     eprintln!("[{:>6.1}s] written to {out}", started.elapsed().as_secs_f64());
     Ok(())

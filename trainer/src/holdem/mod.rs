@@ -6,4 +6,5 @@ pub mod eval;
 pub mod game;
 pub mod kmeans;
 pub mod lbr;
+pub mod ochs;
 pub mod play;
