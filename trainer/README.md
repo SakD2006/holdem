@@ -22,7 +22,8 @@ sampled run replays exactly from its seed.
 | `src/solver/best_response.rs` | Exact best response, exploitability and expected value |
 | `src/holdem/eval.rs` | Hand evaluator, a port of `poker-ai`'s `FastHand` (same card numbers and scores) |
 | `src/holdem/canon.rs` | Canonical keys: deals that differ only by suit names share one |
-| `src/holdem/abstraction.rs` | Card buckets: 169 starting hands; E[HS²] buckets on flop and turn; river strength |
+| `src/holdem/abstraction.rs` | Card buckets: 169 starting hands; flop and turn by E[HS²] or by k-means on river-strength histograms; river strength |
+| `src/holdem/kmeans.rs` | k-means on all cores, starting from k-means++ |
 | `src/holdem/game.rs` | Heads-up No-Limit Hold'em, 100 big blinds, abstracted bets |
 | `src/holdem/play.rs` | Duplicate matches between agents, in bb/100 with a 95% interval |
 | `src/holdem/lbr.rs` | Local best response: how much an exploiter with exact cards wins |
@@ -72,6 +73,24 @@ the 2-million one head to head (+18.5 ±3.6 and +13.5 ±3.6 bb/100) and the 200,
 the better it plays the bucketed game, and the more an opponent who sees exact cards can use
 the differences that 50 buckets hide. The fix is a finer abstraction, and later real-time search,
 which plays with the exact cards.
+
+**200 buckets a street** (LBR over 100,000 hands, ±130 to ±140, one seed). "Histogram" groups flop
+and turn hands by k-means on their histogram of river strength over the cards to come
+(distribution-aware, Johanson et al., 2013); "E[HS²]" is the first method with more buckets.
+About 3.08 million information sets either way; 60 million iterations take 7 minutes.
+
+| Iterations | E[HS²], 200 | Histogram, 200 |
+|---|---|---|
+| 2 million | 277 | 283 |
+| 6 million | 361 | 365 |
+| 20 million | 411 | 232 |
+| 60 million | 546 | 437 |
+
+Four times the buckets lowers exploitability after long training (546 against the 560 to 728
+that 50 buckets reached by 20 million), and histograms look better again, but each gap is
+within about 1.5 margins, and both still rise with training. The flop and turn are not the
+main leak; the next suspects are the river buckets (strength against a random hand, not the
+hands the opponent actually holds) and forgetting earlier streets' buckets.
 
 The checks: the evaluator puts all 2,598,960 five-card and 133,784,560 seven-card hands in the
 right categories; the canonical deals number 1,286,792 flops and 13,960,050 turns, as published

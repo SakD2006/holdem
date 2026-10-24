@@ -25,8 +25,23 @@ pub const PREFLOP_BUCKETS: usize = 169;
 const MAGIC: &[u8; 8] = b"HOLDEMAB";
 const VERSION: u32 = 1;
 
+/// How flop and turn hands are put in buckets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Method {
+    /// Equal-sized buckets by E[HS²].
+    Ehs2,
+    /// k-means on each hand's histogram of river strength over the cards to come
+    /// ("distribution-aware"; Johanson et al., 2013). Tells draws from made hands that have the
+    /// same average.
+    Histogram,
+}
+
+/// Bins of a river-strength histogram.
+pub const BINS: usize = 16;
+
 #[derive(Clone, Debug)]
 pub struct BuildOptions {
+    pub method: Method,
     pub flop_buckets: usize,
     pub turn_buckets: usize,
     pub river_buckets: usize,
@@ -37,12 +52,18 @@ pub struct BuildOptions {
     pub opponents: usize,
     /// Random deals used to place the bucket boundaries.
     pub boundary_samples: usize,
+    /// Histogram method: random run-outs per flop (every river card is tried on the turn),
+    /// random opponent hands per run-out, and k-means passes.
+    pub histogram_flop_runouts: usize,
+    pub histogram_opponents: usize,
+    pub kmeans_passes: usize,
     pub seed: u64,
 }
 
 impl Default for BuildOptions {
     fn default() -> Self {
         BuildOptions {
+            method: Method::Ehs2,
             flop_buckets: 50,
             turn_buckets: 50,
             river_buckets: 50,
@@ -50,6 +71,9 @@ impl Default for BuildOptions {
             turn_runouts: 24,
             opponents: 96,
             boundary_samples: 1_000_000,
+            histogram_flop_runouts: 96,
+            histogram_opponents: 64,
+            kmeans_passes: 25,
             seed: 1,
         }
     }
@@ -211,51 +235,27 @@ impl Abstraction {
         let flops = canonical_flops();
         log(&format!("{} canonical flops; listing turns", flops.len()));
         let turns = canonical_turns(&flops);
-        log(&format!("{} canonical turns; strength of every flop", turns.len()));
-        let flop_values = parallel_map(
-            &flops,
-            |key, rng| {
-                let (hole, board) = canon::unpack(key, 3);
-                ehs2(hole, &board, options.flop_runouts, options.opponents, rng)
-            },
-            options.seed,
-        );
-        log("strength of every turn");
-        let turn_values = parallel_map(
-            &turns,
-            |key, rng| {
-                let (hole, board) = canon::unpack(key, 4);
-                ehs2(hole, &board, options.turn_runouts, options.opponents, rng)
-            },
-            options.seed ^ 0x7475_726E,
-        );
-
-        log("placing bucket boundaries");
-        let mut rng = Rng::new(options.seed ^ 0xB0B0);
-        let n = options.boundary_samples;
-        let (mut flop_sample, mut turn_sample, mut river_sample) =
-            (Vec::with_capacity(n), Vec::with_capacity(n), Vec::with_capacity(n / 5));
-        for i in 0..n {
-            let cards = deal(&mut rng, 7);
-            let hole = [cards[0], cards[1]];
-            flop_sample.push(flop_values[flops.binary_search(&canon::key(hole, &cards[2..5])).unwrap()]);
-            turn_sample.push(turn_values[turns.binary_search(&canon::key(hole, &cards[2..6])).unwrap()]);
-            if i % 5 == 0 {
-                let board = [cards[2], cards[3], cards[4], cards[5], cards[6]];
-                river_sample.push(river_strength(hole, &board));
-            }
-        }
-        let flop_edges = edges(flop_sample, options.flop_buckets);
-        let turn_edges = edges(turn_sample, options.turn_buckets);
-        let river_edges = edges(river_sample, options.river_buckets);
-        let place = |values: &[f32], edges: &[f32]| -> Vec<u8> {
-            values.iter().map(|v| edges.partition_point(|e| e <= v) as u8).collect()
+        log(&format!("{} canonical turns", turns.len()));
+        let (flop_buckets, turn_buckets) = match options.method {
+            Method::Ehs2 => ehs2_buckets(&flops, &turns, options, &log),
+            Method::Histogram => (
+                histogram_buckets(&flops, 3, options.flop_buckets, options, &log),
+                histogram_buckets(&turns, 4, options.turn_buckets, options, &log),
+            ),
         };
+        log("placing river boundaries");
+        let mut rng = Rng::new(options.seed ^ 0xB0B0);
+        let river_sample: Vec<f32> = (0..options.boundary_samples / 5)
+            .map(|_| {
+                let c = deal(&mut rng, 7);
+                river_strength([c[0], c[1]], &[c[2], c[3], c[4], c[5], c[6]])
+            })
+            .collect();
         Abstraction {
             buckets: [PREFLOP_BUCKETS, options.flop_buckets, options.turn_buckets, options.river_buckets],
-            flop: KeyTable { buckets: place(&flop_values, &flop_edges), keys: flops },
-            turn: KeyTable { buckets: place(&turn_values, &turn_edges), keys: turns },
-            river_edges,
+            flop: KeyTable { buckets: flop_buckets, keys: flops },
+            turn: KeyTable { buckets: turn_buckets, keys: turns },
+            river_edges: edges(river_sample, options.river_buckets),
         }
     }
 
@@ -374,6 +374,162 @@ pub fn river_strength(hole: [Card; 2], board: &[Card; 5]) -> f32 {
         }
     }
     points as f32 / (2 * hands) as f32
+}
+
+/// Equal-sized E[HS²] buckets for every flop and turn.
+fn ehs2_buckets(
+    flops: &[u64],
+    turns: &[u64],
+    options: &BuildOptions,
+    log: &(impl Fn(&str) + Sync),
+) -> (Vec<u8>, Vec<u8>) {
+    log("E[HS²] of every flop");
+    let flop_values = parallel_map(
+        flops,
+        |key, rng| {
+            let (hole, board) = canon::unpack(key, 3);
+            ehs2(hole, &board, options.flop_runouts, options.opponents, rng)
+        },
+        options.seed,
+    );
+    log("E[HS²] of every turn");
+    let turn_values = parallel_map(
+        turns,
+        |key, rng| {
+            let (hole, board) = canon::unpack(key, 4);
+            ehs2(hole, &board, options.turn_runouts, options.opponents, rng)
+        },
+        options.seed ^ 0x7475_726E,
+    );
+    log("placing flop and turn boundaries");
+    // Boundaries come from random deals, so each bucket holds an equal share of real deals.
+    let mut rng = Rng::new(options.seed ^ 0xB0B0);
+    let n = options.boundary_samples;
+    let (mut flop_sample, mut turn_sample) = (Vec::with_capacity(n), Vec::with_capacity(n));
+    for _ in 0..n {
+        let cards = deal(&mut rng, 6);
+        let hole = [cards[0], cards[1]];
+        flop_sample.push(flop_values[flops.binary_search(&canon::key(hole, &cards[2..5])).unwrap()]);
+        turn_sample.push(turn_values[turns.binary_search(&canon::key(hole, &cards[2..6])).unwrap()]);
+    }
+    let flop_edges = edges(flop_sample, options.flop_buckets);
+    let turn_edges = edges(turn_sample, options.turn_buckets);
+    let place = |values: &[f32], edges: &[f32]| -> Vec<u8> {
+        values.iter().map(|v| edges.partition_point(|e| e <= v) as u8).collect()
+    };
+    (place(&flop_values, &flop_edges), place(&turn_values, &turn_edges))
+}
+
+/// k-means buckets on river-strength histograms, numbered from weakest to strongest on average.
+fn histogram_buckets(
+    keys: &[u64],
+    board_size: usize,
+    buckets: usize,
+    options: &BuildOptions,
+    log: &(impl Fn(&str) + Sync),
+) -> Vec<u8> {
+    let street = if board_size == 3 { "flop" } else { "turn" };
+    log(&format!("river-strength histogram of every {street}"));
+    let features = parallel_map(
+        keys,
+        |key, rng| {
+            let (hole, board) = canon::unpack(key, board_size);
+            strength_cdf(hole, &board, options.histogram_flop_runouts, options.histogram_opponents, rng)
+        },
+        options.seed ^ board_size as u64,
+    );
+    log(&format!("k-means into {buckets} {street} buckets"));
+    let (labels, _) =
+        super::kmeans::cluster(&features, buckets, options.kmeans_passes, options.seed ^ 0x6B6D, log);
+    // Number the clusters from weakest to strongest average, so bucket numbers mean something.
+    let mut strength = vec![(0.0f64, 0u64); buckets];
+    for (label, cdf) in labels.iter().zip(&features) {
+        strength[*label as usize].0 += mean_strength(cdf);
+        strength[*label as usize].1 += 1;
+    }
+    let mut order: Vec<usize> = (0..buckets).collect();
+    order.sort_by(|a, b| {
+        let mean = |c: usize| strength[c].0 / strength[c].1.max(1) as f64;
+        mean(*a).total_cmp(&mean(*b))
+    });
+    let mut rank = vec![0u8; buckets];
+    for (position, cluster) in order.into_iter().enumerate() {
+        rank[cluster] = position as u8;
+    }
+    labels.into_iter().map(|l| rank[l as usize]).collect()
+}
+
+/// The cumulative histogram of a hand's river strength over the cards still to come: entry `i`
+/// is the share of run-outs where its strength is below `(i + 1) / BINS`. Comparing cumulative
+/// histograms with squared distance comes close to earth mover's distance, the usual measure.
+/// On the turn every river card is tried; on the flop `runouts` random turn and river pairs.
+pub fn strength_cdf(
+    hole: [Card; 2],
+    board: &[Card],
+    runouts: usize,
+    opponents: usize,
+    rng: &mut Rng,
+) -> [f32; BINS] {
+    let mut used = 0u64;
+    for &c in hole.iter().chain(board) {
+        used |= 1 << c;
+    }
+    let boards: Vec<[Card; 5]> = if board.len() == 4 {
+        (0..52u8)
+            .filter(|c| used & (1 << c) == 0)
+            .map(|c| [board[0], board[1], board[2], board[3], c])
+            .collect()
+    } else {
+        (0..runouts)
+            .map(|_| {
+                let mut taken = used;
+                let mut full = [0u8; 5];
+                full[..board.len()].copy_from_slice(board);
+                for slot in full.iter_mut().skip(board.len()) {
+                    *slot = draw(rng, &mut taken);
+                }
+                full
+            })
+            .collect()
+    };
+    let mut histogram = [0f32; BINS];
+    let mut seven = [0u8; 7];
+    for full in &boards {
+        let mut taken = used;
+        for &c in &full[board.len()..] {
+            taken |= 1 << c;
+        }
+        seven[2..].copy_from_slice(full);
+        seven[0] = hole[0];
+        seven[1] = hole[1];
+        let mine = score(&seven);
+        let mut points = 0u32;
+        for _ in 0..opponents {
+            let mut taken_here = taken;
+            seven[0] = draw(rng, &mut taken_here);
+            seven[1] = draw(rng, &mut taken_here);
+            points += showdown_points(mine, score(&seven));
+        }
+        let strength = points as f32 / (2 * opponents) as f32;
+        histogram[((strength * BINS as f32) as usize).min(BINS - 1)] += 1.0;
+    }
+    let mut running = 0.0;
+    for bin in histogram.iter_mut() {
+        running += *bin / boards.len() as f32;
+        *bin = running;
+    }
+    histogram
+}
+
+/// Average strength read back from a cumulative histogram.
+fn mean_strength(cdf: &[f32; BINS]) -> f64 {
+    let mut previous = 0.0;
+    let mut mean = 0.0;
+    for (i, c) in cdf.iter().enumerate() {
+        mean += (c - previous) as f64 * (i as f64 + 0.5) / BINS as f64;
+        previous = *c;
+    }
+    mean
 }
 
 /// 2 for a win, 1 for a tie, 0 for a loss.
@@ -580,10 +736,14 @@ fn parallel_collect(jobs: usize, job: impl Fn(usize) -> Vec<u64> + Sync) -> Vec<
 
 /// `f(key)` for every key, on all cores. Each key's random numbers come from its own seed, so
 /// the result does not depend on how the work was split.
-fn parallel_map(keys: &[u64], f: impl Fn(u64, &mut Rng) -> f32 + Sync, seed: u64) -> Vec<f32> {
-    let mut values = vec![0f32; keys.len()];
+fn parallel_map<T: Copy + Default + Send>(
+    keys: &[u64],
+    f: impl Fn(u64, &mut Rng) -> T + Sync,
+    seed: u64,
+) -> Vec<T> {
+    let mut values = vec![T::default(); keys.len()];
     let chunk = keys.len().div_ceil(threads() * 8).max(1);
-    let slices: Vec<(usize, &mut [f32])> = values.chunks_mut(chunk).enumerate().collect();
+    let slices: Vec<(usize, &mut [T])> = values.chunks_mut(chunk).enumerate().collect();
     let slices = std::sync::Mutex::new(slices);
     thread::scope(|scope| {
         for _ in 0..threads() {
@@ -659,6 +819,23 @@ mod tests {
             assert_eq!(all[combo_index(hole[0], hole[1])], river_strength([hole[0], hole[1]], &board));
         }
         assert!(all[combo_index(board[0], 0)].is_nan() || board[0] == 0);
+    }
+
+    #[test]
+    fn a_draw_and_a_middle_pair_have_different_histograms() {
+        // Similar average strength, very different shapes: the draw is often very weak or very
+        // strong by the river, the pair usually middling.
+        let mut rng = Rng::new(3);
+        let flop = parse("Kh 7h 2c");
+        let draw = strength_cdf([parse("Ah")[0], parse("5h")[0]], &flop, 400, 200, &mut rng);
+        let pair = strength_cdf([parse("7c")[0], parse("6d")[0]], &flop, 400, 200, &mut rng);
+        let spread = |cdf: &[f32; BINS]| cdf[BINS / 4] + (1.0 - cdf[3 * BINS / 4]);
+        assert!(spread(&draw) > spread(&pair) + 0.15, "draw {draw:?} pair {pair:?}");
+        assert!(cdf_is_cumulative(&draw) && cdf_is_cumulative(&pair));
+    }
+
+    fn cdf_is_cumulative(cdf: &[f32; BINS]) -> bool {
+        cdf.windows(2).all(|w| w[0] <= w[1] + 1e-6) && (cdf[BINS - 1] - 1.0).abs() < 1e-4
     }
 
     #[test]

@@ -322,7 +322,9 @@ more than the margin, and it does not lose to the simulation bot.
 - [x] Training on all cores (200,000 iterations a second); local best response to measure
       strength. Finding: 50 buckets overfit, so exploitability rises after about 2 million
       iterations.
-- [ ] Better abstraction: k-means on equity histograms.
+- [x] Better abstraction: k-means on river-strength histograms, 200 buckets a street. Lower
+      exploitability than 50 buckets after long training, but it still rises with training.
+- [ ] Find where LBR wins (by street) and fix the largest leak.
 - [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
 - [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
 - [ ] Arena results for every level against every other.

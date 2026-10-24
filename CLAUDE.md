@@ -71,7 +71,7 @@ SLF4J + Logback.
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"   # arena: bots against bots
 (cd trainer && cargo test --release)                             # trainer: solvers checked on Kuhn and Leduc poker
 python3 trainer/py/compare.py --game leduc --iterations 5000    # trainer: every solver, CSV + chart in trainer/runs/
-(cd trainer && cargo run --release -- abstraction --out runs/abstraction-50.bin)   # Hold'em card buckets, ~3 min
+(cd trainer && cargo run --release -- abstraction --out runs/abstraction-h200.bin --buckets 200)   # card buckets (histogram k-means), ~4 min
 (cd trainer && cargo run --release -- holdem --abstraction runs/abstraction-50.bin --iterations 20000000 --save runs/bp.bin)
 (cd trainer && cargo run --release -- lbr --abstraction runs/abstraction-50.bin --blueprint runs/bp.bin)   # strength: LBR, lower is better
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
