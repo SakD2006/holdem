@@ -41,17 +41,16 @@ where such an agent is weak. We train heads-up No-Limit Texas Hold'em strategies
 linearly weighted Monte Carlo counterfactual regret minimization at about two hundred thousand
 iterations per second on twelve cores, after checking the solvers against published values on
 Kuhn and Leduc poker. We measure strength with local best response, an exploiting opponent that
-knows its own cards and the strategy it faces, and we restrict that opponent to one betting round
-at a time to locate leaks. With two hundred card buckets per round, the flop is close to
-unexploitable while the river gives away 276 milli-big-blinds per hand after two million
-iterations and 736 after sixty million: the strategy overfits its card abstraction even as it
-keeps winning head to head against less-trained versions of itself. We also show that a common
-way of seeding parallel random number generators silently correlates the samples of evaluation
-threads and understates error margins. On top of these strategies we place a bounded opponent
-model built from public information only. On a simulation-based agent it raises the win rate
-against each of six opponent types, including one designed to punish adaptation, and it plays
-exactly as the base agent when it has no evidence. The game engine, solvers and evaluation tools
-are released as open source.
+knows its own cards and the strategy it faces, restricted to one betting round at a time to
+locate leaks. The river is the weak point: its leak grows from 276 to 736 milli-big-blinds per
+hand between two and sixty million iterations as the strategy overfits its card abstraction,
+and richer river buckets do not help. Solving the river during play, hand by hand, removes the
+leak and cuts total exploitability after the flop by seventy percent. We also show that a
+common way of seeding parallel random number generators silently correlates the samples of
+evaluation threads and understates error margins. Finally, a bounded opponent model built from
+public information raises a simulation-based agent's win rate against each of six opponent
+types, including one designed to punish adaptation, and plays exactly as the base agent when it
+has no evidence. The game engine, solvers and evaluation tools are released as open source.
 \end{abstract}
 
 \begin{keywords}
@@ -92,7 +91,10 @@ published values.
 restricted to one betting round shows that the flop of our strategies is close to sound while
 the river leaks, and that the river leak \emph{grows} with training: the strategy overfits its
 card abstraction~\cite{waugh2009,johanson2013} even as it keeps beating less-trained versions
-of itself.
+of itself. Richer river buckets that describe a hand by its strength against clusters of
+opponent hands do not reduce the leak.
+\item River re-solving: solving the river subgame during play for every hand of both ranges
+removes the river leak (from 736 to 7~\mbb) and cuts exploitability after the flop by 70\%.
 \item A pitfall in evaluation: seeding parallel random number generators by combining a seed
 with a thread index makes streams that are shifted copies of each other. In our LBR runs this
 shrank the effective sample size and produced a spurious edge; we give the fix and a test that
@@ -219,6 +221,24 @@ epoch $e$ every regret and strategy sum is multiplied by $e/(e+1)$.
 Regrets and strategy sums are stored as 64-bit floats. With 32-bit floats the sums at the busiest
 preflop nodes reached tens of millions after a few million iterations, where an update of about
 one is lost to rounding and training quietly stalls.
+
+\subsection{River Re-solving}
+When the river card is dealt, the agent stops playing its river buckets and solves the rest of
+the hand. The subgame starts at the river with the actual pot and uses the blueprint's bet
+sizes. Each player's range is the product, over that player's earlier actions, of the
+probability that the blueprint takes the action with each pair of hole cards; the ranges use no
+private cards. The opponent's probabilities are floored at 0.01 per action, so that a range
+never collapses after an action the blueprint rarely takes. This is unsafe
+re-solving~\cite{brown2018}: it trusts the opponent's range.
+
+The subgame is solved by discounted CFR~\cite{brown2019dcfr} ($\alpha=1.5$, $\beta=0$,
+$\gamma=2$) in vector form: every decision keeps regrets for each of the up to 1\,081 hands
+that miss the board, and both players are updated in turn. A fold is valued for all hands at
+once from the total opponent weight minus the weight on hands that share a card. A showdown is
+valued by sweeping the hands in order of strength while keeping running totals per card, so
+that card removal is exact and the cost is linear in the number of hands. Hands with negligible
+weight in both ranges are left out. On a river with 117 subgame nodes and full ranges, 200
+iterations take about 0.3~s on one core and leave an exploitability of 0.025 big blinds.
 
 \begin{table}[t]
 \caption{Training Speed on an Apple M3 Pro (12 Cores), Heads-Up NLHE, 50 Buckets per Round}
@@ -400,8 +420,36 @@ distinctions those buckets cannot draw: a river bucket measures strength against
 which says little about strength against the narrow range an opponent holds after three rounds
 of betting. This matches the overfitting described in~\cite{johanson2013} and locates it.
 
-\pending{Fix for the river leak (buckets by strength against clusters of opponent hands, or
-real-time search with exact cards) and its effect on the table above.}
+\subsection{Fixing the River}
+Richer buckets were tried first. With opponent cluster hand strength~\cite{johanson2013}, a
+river hand is described by its probability of beating each of eight clusters of starting hands,
+and k-means on these vectors gives 200 buckets (flop and turn unchanged). River-only LBR was
+359, 635 and 695~\mbb{} at the three training lengths, no different from Table~\ref{tab:streets}
+within the margins, and still rising with training. The leak does not come from what a bucket
+knows, but from bucketing itself: every hand in a bucket must play alike, and an opponent with
+exact cards reads the lines training draws between buckets.
+
+Re-solving removes it (Table~\ref{tab:resolve}). LBR that may deviate only on the river wins
+nothing measurable, and exploitability after the flop falls by 70\% for the longer-trained
+blueprint. With re-solving, longer training no longer hurts. The remaining exploitability is
+mostly on the turn.
+
+\begin{table}[t]
+\caption{LBR Winnings (\mbb) With River Buckets and With River Re-solving}
+\label{tab:resolve}
+\centering
+\begin{tabular}{lrrrr}
+\hline
+ & \multicolumn{2}{c}{River only} & \multicolumn{2}{c}{Postflop} \\
+Iterations & Buckets & Re-solved & Buckets & Re-solved \\
+\hline
+$2\times10^6$ & $276\pm67$ & $-59\pm90$ & $479\pm75$ & $275\pm103$ \\
+$6\times10^7$ & $736\pm57$ & $7\pm64$ & $793\pm75$ & $243\pm97$ \\
+\hline
+\multicolumn{5}{p{0.9\columnwidth}}{\footnotesize 200 histogram buckets; re-solving with 200
+iterations; 100\,000 hands per value.}
+\end{tabular}
+\end{table}
 
 \subsection{Opponent Adaptation}
 \label{sec:results-adaptation}
@@ -443,6 +491,11 @@ gain against hands observed.}
 % ============================================================================
 \section{Limitations}
 \label{sec:limits}
+\textbf{Unsafe re-solving.} The river solver trusts the opponent's range as the blueprint
+implies it. An opponent who plays differently before the river can make that range wrong; safe
+re-solving~\cite{brown2018} would bound the damage. LBR after the flop does deviate before the
+river, and the result still improved, but this is not a guarantee.
+
 \textbf{LBR is a lower bound.} It uses the strategy's own bet sizes and a check-down valuation;
 a full best response would win more.
 
@@ -466,11 +519,12 @@ human players.}
 A consumer laptop trains a heads-up NLHE blueprint at about $2\times10^5$ iterations per second.
 Restricting local best response to one betting round turns a single exploitability number into a
 map of where a strategy is weak; for our strategies the map points at the river, whose leak grows
-as the strategy overfits its card abstraction. Careful seeding of parallel generators matters as
+as the strategy overfits its card abstraction. Richer buckets do not remove it; solving the river
+hand by hand during play does, and cuts exploitability after the flop by 70\%. Careful seeding of parallel generators matters as
 much as the solver for trustworthy measurements. A bounded opponent model built from public
 information raises win rates against every opponent type tested, including one built to punish
-it. Next steps are fixing the river leak with richer buckets or real-time search, moving the
-adaptation layer onto the blueprint as a restricted Nash response, and external benchmarks.
+it. Next steps are re-solving from the turn, moving the adaptation layer onto the blueprint as
+a restricted Nash response, and external benchmarks.
 
 \section*{Data and Code Availability}
 The game engine, server, solvers and evaluation tools, with the commands and seeds behind every

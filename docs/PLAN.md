@@ -327,7 +327,9 @@ more than the margin, and it does not lose to the simulation bot.
 - [x] Find where LBR wins (by street): the river, growing with training (276 to 736 mbb/hand).
 - [x] River buckets by opponent cluster (OCHS): no better than strength buckets; the leak is
       bucketing itself.
-- [ ] Fix the river leak: re-solve the river during play with exact cards.
+- [x] Fix the river leak: re-solve the river during play, hand by hand. River-only LBR 736 to
+      7 mbb/hand, postflop 793 to 243, at 60 million iterations.
+- [ ] The turn leak (about 200 mbb/hand): re-solve from the turn too.
 - [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
 - [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
 - [ ] Arena results for every level against every other.

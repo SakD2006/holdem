@@ -123,3 +123,25 @@ fn lbr_that_never_deviates_breaks_even() {
     let result = local_best_response(&game(), &Uniform, &options);
     assert!(result.bb_per_100.abs() < result.margin, "{result:?}");
 }
+
+#[test]
+fn re_solving_the_river_leaves_less_to_win_there() {
+    use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
+    use holdem_trainer::solver::parallel::ParallelMccfr;
+    // Nine river buckets (hand categories) leak a lot on the river; solving it hand by hand
+    // should leave LBR much less to win there.
+    let mut solver = ParallelMccfr::new(game(), 20, 12, 50_000, 6);
+    solver.run_until(600_000);
+    let game = game();
+    let mut options = LbrOptions::new(12_000, 7, 12);
+    options.streets = [false, false, false, true];
+    let buckets_only = local_best_response(&game, solver.table(), &options);
+    options.resolve_iterations = 100;
+    let re_solved = local_best_response(&game, solver.table(), &options);
+    // The difference must exceed its own 95% margin (the two results are independent).
+    let combined = (re_solved.margin.powi(2) + buckets_only.margin.powi(2)).sqrt();
+    assert!(
+        buckets_only.bb_per_100 - re_solved.bb_per_100 > combined,
+        "buckets only {buckets_only:?}, re-solved {re_solved:?}"
+    );
+}

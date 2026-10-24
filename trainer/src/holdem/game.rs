@@ -104,6 +104,16 @@ impl HoldemState {
         self.street_bet[player]
     }
 
+    /// Chips `player` has put in this hand.
+    pub fn committed(&self, player: usize) -> u32 {
+        self.committed[player]
+    }
+
+    /// Who folded, if the hand ended that way.
+    pub fn folder(&self) -> Option<usize> {
+        self.folded
+    }
+
     fn behind(&self, player: usize) -> u32 {
         STACK - self.committed[player]
     }

@@ -133,9 +133,24 @@ hand in a bucket play alike, so sharper training draws lines between buckets tha
 with exact cards can read. The standard remedy is to solve the river during play with exact
 cards (river re-solving).
 
+**River re-solving fixes it.** When the river card comes, the strategy now solves the rest of
+the hand for every pair of hole cards both players could hold (`src/holdem/resolve.rs`):
+discounted CFR over all hands at once, exact card removal, showdowns valued by one sorted
+sweep, ranges taken from the blueprint's play so far with nobody's private cards, and the
+opponent's range kept from collapsing by a 1% floor on each of its actions. 200 iterations take
+about 0.1 to 0.3 seconds. LBR over 100,000 hands, 200 histogram buckets:
+
+| Iterations | River only, buckets | River only, re-solved | Postflop, buckets | Postflop, re-solved |
+|---|---|---|---|---|
+| 2 million | 276 ±67 | −59 ±90 | 479 ±75 | 275 ±103 |
+| 60 million | 736 ±57 | 7 ±64 | 793 ±75 | 243 ±97 |
+
+The river leak is gone and exploitability after the flop falls by 70% for the longer-trained
+strategy; longer training no longer hurts. What is left is mostly the turn (about 200).
+
 ## Next
 
-1. River re-solving: at the river, solve the remaining game for every hand of both ranges with
-   CFR+, starting from the ranges the blueprint implies, and play the exact hand's strategy.
-2. Export the blueprint for `poker-ai` and play it in the arena against the current bots.
+1. The turn: re-solve from the turn as well (with the river as chance), or depth-limited search.
+2. Export the blueprint and the river solver for `poker-ai` and play them in the arena against
+   the current bots.
 3. Opponent modelling on top of search (restricted Nash response).

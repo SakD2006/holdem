@@ -74,6 +74,7 @@ python3 trainer/py/compare.py --game leduc --iterations 5000    # trainer: every
 (cd trainer && cargo run --release -- abstraction --out runs/abstraction-h200.bin --buckets 200)   # card buckets (histogram k-means), ~4 min
 (cd trainer && cargo run --release -- holdem --abstraction runs/abstraction-50.bin --iterations 20000000 --save runs/bp.bin)
 (cd trainer && cargo run --release -- lbr --abstraction runs/abstraction-50.bin --blueprint runs/bp.bin)   # strength: LBR, lower is better
+(cd trainer && cargo run --release -- lbr --abstraction runs/abstraction-h200.bin --blueprint runs/bp.bin --resolve-river 200)   # with river re-solving
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf

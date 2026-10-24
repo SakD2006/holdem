@@ -9,6 +9,7 @@
 //!                  [--deals 20000] [--lbr-deals 5000] [--seed 1] [--threads N] [--table-bits 21]
 //!                  [--epoch 100000] [--save runs/blueprint.bin]
 //!   trainer lbr --abstraction runs/abstraction-50.bin --blueprint runs/blueprint.bin [--deals 50000]
+//!               [--by-street yes] [--resolve-river 200]
 //!
 //! Hold'em progress is reported as winnings against an always-call player, and as what local
 //! best response (LBR) wins against the strategy, in milli-big-blinds per hand (lower is better).
@@ -243,6 +244,20 @@ fn measure_lbr(options: &HashMap<String, String>) -> Result<(), String> {
         number(options, "seed", 1)?,
         number(options, "threads", cores)? as usize,
     );
+    lbr_options.resolve_iterations = number(options, "resolve-river", 0)? as usize;
+    if let Some(list) = options.get("streets") {
+        // Which streets LBR deviates on, e.g. `river` or `flop,turn,river`.
+        let names = ["preflop", "flop", "turn", "river"];
+        let mut streets = [false; 4];
+        for name in list.split(',') {
+            let i = names.iter().position(|n| *n == name).ok_or(format!("unknown street {name}"))?;
+            streets[i] = true;
+        }
+        lbr_options.streets = streets;
+    }
+    if lbr_options.resolve_iterations > 0 {
+        println!("the strategy re-solves the river ({} iterations)", lbr_options.resolve_iterations);
+    }
     if options.get("by-street").map(String::as_str) == Some("yes") {
         println!("{path}: {} information sets", blueprint.len());
         println!("LBR plays its best response only on the street named, and the strategy elsewhere:");

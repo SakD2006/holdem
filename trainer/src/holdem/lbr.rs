@@ -20,10 +20,11 @@
 
 use std::thread;
 
-use super::abstraction::{all_combos, deal};
+use super::abstraction::{all_combos, combo_index, deal};
 use super::eval::{score, Card};
 use super::game::{Holdem, HoldemState, FOLD};
 use super::play::{strategy_or_call, MatchResult};
+use super::resolve::{self, RiverSolution};
 use crate::game::{Action, Game, Turn};
 use crate::rng::Rng;
 use crate::solver::Policy;
@@ -41,6 +42,9 @@ pub struct LbrOptions {
     /// others it plays the strategy itself, so a run with one street switched on measures what
     /// can be won on that street alone.
     pub streets: [bool; 4],
+    /// If above zero, the strategy re-solves the river with this many iterations instead of
+    /// playing its river buckets (see `resolve`).
+    pub resolve_iterations: usize,
 }
 
 impl LbrOptions {
@@ -48,7 +52,7 @@ impl LbrOptions {
     /// an action as if the hand were then checked down) plays the preflop badly, and would hide
     /// leaks on later streets; this is the usual way to run it.
     pub fn new(deals: u64, seed: u64, threads: usize) -> Self {
-        LbrOptions { deals, seed, threads, streets: [false, true, true, true] }
+        LbrOptions { deals, seed, threads, streets: [false, true, true, true], resolve_iterations: 0 }
     }
 }
 
@@ -70,16 +74,8 @@ pub fn local_best_response<P: Policy>(game: &Holdem, policy: &P, options: &LbrOp
                         let board = [cards[4], cards[5], cards[6], cards[7], cards[8]];
                         let mut per_deal = 0.0;
                         for lbr_seat in 0..2 {
-                            per_deal += play(
-                                game,
-                                policy,
-                                combos,
-                                holes,
-                                &board,
-                                lbr_seat,
-                                options.streets,
-                                &mut rng,
-                            );
+                            per_deal +=
+                                play(game, policy, combos, holes, &board, lbr_seat, options, &mut rng);
                         }
                         per_deal /= 2.0;
                         sum += per_deal;
@@ -98,6 +94,69 @@ pub fn local_best_response<P: Policy>(game: &Holdem, policy: &P, options: &LbrOp
     MatchResult { hands: 2 * n, bb_per_100: 100.0 * mean, margin: 100.0 * 1.96 * (variance / n_f).sqrt() }
 }
 
+/// How much less likely the strategy's re-solver believes an opponent action is than the
+/// blueprint says, at the least: LBR's play can be one the blueprint almost never makes, and a
+/// range must not collapse to nothing.
+const OPPONENT_FLOOR: f64 = 0.01;
+
+/// How the strategy plays each hand at a state: from the blueprint's buckets, or on the river
+/// from a re-solved subgame once there is one.
+struct Strategy<'a, P: Policy> {
+    game: &'a Holdem,
+    policy: &'a P,
+    river: Option<RiverSolution>,
+}
+
+impl<P: Policy> Strategy<'_, P> {
+    /// For every hand (by `combo_index`) with weight, the chance the strategy takes
+    /// `legal[choice]` at `state`. `buckets` are the hands' buckets on this street.
+    fn chance_per_hand(
+        &self,
+        state: &HoldemState,
+        legal: &[Action],
+        choice: usize,
+        buckets: &[u16],
+        weights: &[f64],
+    ) -> Vec<f64> {
+        let mut by_bucket: Vec<Option<f64>> = Vec::new();
+        let mut out = vec![0f64; weights.len()];
+        for (h, (&w, &bucket)) in weights.iter().zip(buckets).enumerate() {
+            if w == 0.0 {
+                continue;
+            }
+            if let Some(probs) = self.river.as_ref().and_then(|r| r.probs(self.game, state, h)) {
+                out[h] = probs[choice];
+                continue;
+            }
+            let b = bucket as usize;
+            if b >= by_bucket.len() {
+                by_bucket.resize(b + 1, None);
+            }
+            out[h] = *by_bucket[b].get_or_insert_with(|| {
+                strategy_or_call(self.policy, self.game.info_key_with_bucket(state, bucket), legal)[choice]
+            });
+        }
+        out
+    }
+
+    /// The strategy's own decision with its actual hand.
+    fn act(
+        &self,
+        state: &HoldemState,
+        legal: &[Action],
+        seat: usize,
+        hole: [Card; 2],
+        rng: &mut Rng,
+    ) -> Action {
+        let probs = self
+            .river
+            .as_ref()
+            .and_then(|r| r.probs(self.game, state, combo_index(hole[0], hole[1])))
+            .unwrap_or_else(|| strategy_or_call(self.policy, self.game.info_key(state, seat), legal));
+        legal[rng.pick(&probs)]
+    }
+}
+
 /// One hand with LBR in `lbr_seat`; returns what LBR won, in big blinds.
 #[allow(clippy::too_many_arguments)]
 fn play<P: Policy>(
@@ -107,19 +166,24 @@ fn play<P: Policy>(
     holes: [[Card; 2]; 2],
     board: &[Card; 5],
     lbr_seat: usize,
-    streets: [bool; 4],
+    options: &LbrOptions,
     rng: &mut Rng,
 ) -> f64 {
     let me = holes[lbr_seat];
+    let them = 1 - lbr_seat;
     let shown = |street: usize| match street {
         0 => 0,
         1 => 3,
         2 => 4,
         _ => 5,
     };
-    // The opponent's possible hands: none that share a card with LBR's.
+    // LBR's view of the strategy's hands: none that share a card with LBR's.
     let mut range: Vec<f64> =
         combos.iter().map(|h| if h.contains(&me[0]) || h.contains(&me[1]) { 0.0 } else { 1.0 }).collect();
+    // The public ranges the strategy's re-solver starts from: each seat's hands as the
+    // blueprint would have played them, using nobody's private cards.
+    let mut public: [Vec<f64>; 2] = [vec![1.0; combos.len()], vec![1.0; combos.len()]];
+    let mut strategy = Strategy { game, policy, river: None };
     let mut state = game.deal(holes, board);
     let mut street = usize::MAX;
     let mut buckets: Vec<u16> = Vec::new();
@@ -132,83 +196,53 @@ fn play<P: Policy>(
         if state.street() != street {
             street = state.street();
             let visible = &board[..shown(street)];
-            for (weight, hand) in range.iter_mut().zip(combos) {
-                if visible.contains(&hand[0]) || visible.contains(&hand[1]) {
-                    *weight = 0.0;
+            let [first, second] = &mut public;
+            for weights in [&mut range, first, second] {
+                for (weight, hand) in weights.iter_mut().zip(combos) {
+                    if visible.contains(&hand[0]) || visible.contains(&hand[1]) {
+                        *weight = 0.0;
+                    }
                 }
             }
             buckets = game.bucketer().range_buckets(visible);
+            if street == 3 && options.resolve_iterations > 0 {
+                let ranges: [&[f64]; 2] = [&public[0], &public[1]];
+                strategy.river =
+                    Some(resolve::solve(game, &state, board, ranges, options.resolve_iterations));
+            }
         }
         let legal = game.legal_actions(&state);
-        if player != lbr_seat {
-            let key = game.info_key(&state, player);
-            let probs = strategy_or_call(policy, key, &legal);
-            let choice = rng.pick(&probs);
-            update_range(game, policy, &state, &legal, choice, &buckets, &mut range);
-            state = game.apply(&state, legal[choice]);
-        } else if streets[street] {
+        let choice = if player != lbr_seat {
+            let action = strategy.act(&state, &legal, player, holes[player], rng);
+            let choice = legal.iter().position(|a| *a == action).expect("a legal action");
+            let chance = strategy.chance_per_hand(&state, &legal, choice, &buckets, &range);
+            for (w, c) in range.iter_mut().zip(&chance) {
+                *w *= c;
+            }
+            choice
+        } else if options.streets[street] {
             let action =
-                best_action(game, policy, &state, &legal, me, &board[..shown(street)], &buckets, &range, rng);
-            state = game.apply(&state, action);
+                best_action(&strategy, &state, &legal, me, &board[..shown(street)], &buckets, &range, rng);
+            legal.iter().position(|a| *a == action).expect("a legal action")
         } else {
             let probs = strategy_or_call(policy, game.info_key(&state, player), &legal);
-            state = game.apply(&state, legal[rng.pick(&probs)]);
+            rng.pick(&probs)
+        };
+        // Before the river, keep both public ranges up to date with the blueprint's play.
+        if street < 3 && options.resolve_iterations > 0 {
+            let chance = strategy.chance_per_hand(&state, &legal, choice, &buckets, &public[player]);
+            let floor = if player == them { 0.0 } else { OPPONENT_FLOOR };
+            for (w, c) in public[player].iter_mut().zip(&chance) {
+                *w *= c.max(floor);
+            }
         }
+        state = game.apply(&state, legal[choice]);
     }
-}
-
-/// Bayes' rule over the opponent's hands after it took `legal[choice]`. The strategy's
-/// probabilities depend only on the bucket, so they are looked up once per bucket.
-fn update_range<P: Policy>(
-    game: &Holdem,
-    policy: &P,
-    state: &HoldemState,
-    legal: &[Action],
-    choice: usize,
-    buckets: &[u16],
-    range: &mut [f64],
-) {
-    let mut by_bucket: Vec<f64> = Vec::new();
-    let mut known: Vec<bool> = Vec::new();
-    for (weight, &bucket) in range.iter_mut().zip(buckets) {
-        if *weight == 0.0 {
-            continue;
-        }
-        let b = bucket as usize;
-        if b >= known.len() {
-            known.resize(b + 1, false);
-            by_bucket.resize(b + 1, 0.0);
-        }
-        if !known[b] {
-            let key = game.info_key_with_bucket(state, bucket);
-            by_bucket[b] = strategy_or_call(policy, key, legal)[choice];
-            known[b] = true;
-        }
-        *weight *= by_bucket[b];
-    }
-}
-
-/// How often the strategy folds to `bet` at each bucket.
-fn fold_chance_by_bucket<P: Policy>(
-    game: &Holdem,
-    policy: &P,
-    after_bet: &HoldemState,
-    buckets: &[u16],
-) -> Vec<f64> {
-    let legal = game.legal_actions(after_bet);
-    let Some(fold_at) = legal.iter().position(|a| *a == FOLD) else {
-        return vec![0.0; 256];
-    };
-    let top = buckets.iter().copied().max().unwrap_or(0) as usize;
-    (0..=top as u16)
-        .map(|bucket| strategy_or_call(policy, game.info_key_with_bucket(after_bet, bucket), &legal)[fold_at])
-        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
 fn best_action<P: Policy>(
-    game: &Holdem,
-    policy: &P,
+    strategy: &Strategy<P>,
     state: &HoldemState,
     legal: &[Action],
     me: [Card; 2],
@@ -217,6 +251,7 @@ fn best_action<P: Policy>(
     range: &[f64],
     rng: &mut Rng,
 ) -> Action {
+    let game = strategy.game;
     let wins = win_chances(me, visible, range, rng);
     let me_seat = match game.turn(state) {
         Turn::Player(p) => p,
@@ -239,11 +274,14 @@ fn best_action<P: Policy>(
             _ => {
                 let after = game.apply(state, action);
                 let put_in = (after.street_bet(me_seat) - state.street_bet(me_seat)) as f64;
-                let folds = fold_chance_by_bucket(game, policy, &after, buckets);
+                let answers = game.legal_actions(&after);
+                let folds = match answers.iter().position(|a| *a == FOLD) {
+                    Some(fold_at) => strategy.chance_per_hand(&after, &answers, fold_at, buckets, range),
+                    None => vec![0.0; range.len()],
+                };
                 let (mut fold_weight, mut call_weight, mut call_wins) = (0.0, 0.0, 0.0);
-                for ((w, &b), e) in range.iter().zip(buckets).zip(&wins) {
+                for ((w, f), e) in range.iter().zip(&folds).zip(&wins) {
                     if *w > 0.0 {
-                        let f = folds.get(b as usize).copied().unwrap_or(0.0);
                         fold_weight += w * f;
                         call_weight += w * (1.0 - f);
                         call_wins += w * (1.0 - f) * e;
@@ -324,7 +362,6 @@ fn win_chances(me: [Card; 2], visible: &[Card], range: &[f64], rng: &mut Rng) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::holdem::abstraction::combo_index;
     use crate::holdem::eval::parse;
 
     #[test]
