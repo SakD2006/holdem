@@ -252,7 +252,7 @@ carries `canBet` and `canRaise` so the client knows which of the two to send.
 
 `ErrorCode`: `NOT_YOUR_TURN, INVALID_ACTION, INVALID_AMOUNT, ROOM_NOT_FOUND, ROOM_FULL,
 ROOM_CLOSED, SEAT_TAKEN, NOT_HOST, GAME_ALREADY_STARTED, NOT_ENOUGH_PLAYERS, REBUY_NOT_ALLOWED,
-NOT_IN_ROOM, ALREADY_IN_ROOM, INVALID_CREDENTIALS, USERNAME_TAKEN, MALFORMED_MESSAGE,
+NOT_IN_ROOM, ALREADY_IN_ROOM, BOT_UNAVAILABLE, INVALID_CREDENTIALS, USERNAME_TAKEN, MALFORMED_MESSAGE,
 INVALID_REQUEST, UNAUTHORIZED, INTERNAL`.
 
 `INVALID_REQUEST` means the request was readable but its contents are not acceptable (a username
@@ -534,8 +534,19 @@ poker-server
 - **Pace:** a bot waits a random `bot.think.min.ms` to `bot.think.max.ms` (800 to 2500 by default)
   before acting.
 - **Levels:** `EASY` (rules of thumb, a little loose), `MEDIUM` (simulation: 600 deals per
-  decision against ranges guessed from each opponent's actions) and `HARD` (Medium plus memory of
-  each opponent). Each level has bot names of its own, so a name always means the same strength.
+  decision against ranges guessed from each opponent's actions), `HARD` (Medium plus memory of
+  each opponent) and `EXPERT` (the trainer's blueprint, below). Each level has bot names of its
+  own, so a name always means the same strength.
+- **Expert:** `BlueprintStrategy` (`poker-ai`, package `blueprint`) plays a strategy trained by
+  the Rust trainer (`trainer/`), heads-up only; with three or more players dealt in it plays as
+  Hard does. At each decision it rebuilds the hand in the blueprint's game from
+  `Observation.history()`, the public actions in order, mapping each real bet onto the
+  blueprint's sizes (pseudo-harmonic mapping) and updating both players' public ranges with the
+  blueprint's probabilities; on the river it re-solves the subgame for its exact hand. Its own
+  choice becomes a real bet of the same fraction of the pot. It is stateless, so all Expert bots
+  share one instance; the files (`blueprint.abstraction`, `blueprint.strategy`, about 300 MB in
+  memory) are loaded at start-up, and a server without them answers `BOT_UNAVAILABLE`.
+  `TrainerFixturesTest` checks the Java port against examples the trainer writes.
 - **Memory (Hard):** `TableObserver` keeps an `OpponentBook` for as long as the bot sits in the
   room. Per player it counts what the whole table could see: how often they enter a pot, raise,
   fold to a raise before the flop, fold to a bet after it, and bet; and, when their cards are

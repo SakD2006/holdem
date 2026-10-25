@@ -134,7 +134,7 @@ impl HoldemState {
 
     /// What a raise action makes the player's total bet on this street, or `None` if that size
     /// is not allowed here.
-    fn raise_to(&self, action: Action) -> Option<u32> {
+    pub fn raise_to(&self, action: Action) -> Option<u32> {
         let me = self.to_act;
         let all_in = self.street_bet[me] + self.behind(me);
         if action == ALL_IN {

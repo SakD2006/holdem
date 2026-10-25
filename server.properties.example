@@ -33,3 +33,14 @@ room.idle.minutes=30
 # between the two, in milliseconds. 0 and 0 makes them act at once.
 bot.think.min.ms=800
 bot.think.max.ms=2500
+
+# Expert bot: plays a strategy trained by the trainer (trainer/README.md), heads-up, and solves the
+# river card by card. Give the two files the trainer wrote, as absolute paths; without them the
+# server offers Easy, Medium and Hard only. They take about 300 MB of memory.
+#   cd trainer && cargo run --release -- abstraction --out runs/abstraction-h200.bin --buckets 200
+#   cargo run --release -- holdem --abstraction runs/abstraction-h200.bin --iterations 60000000 \
+#       --table-bits 23 --save runs/bp.bin
+#blueprint.abstraction=/path/to/holdem/trainer/runs/abstraction-h200.bin
+#blueprint.strategy=/path/to/holdem/trainer/runs/bp.bin
+# Iterations of river re-solving per hand; 0 plays the trained river instead (faster, weaker).
+#blueprint.resolve.iterations=200

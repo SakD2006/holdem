@@ -69,6 +69,7 @@ SLF4J + Logback.
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"   # soak: bots make their own room
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"   # arena: bots against bots
+./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 50000 --bots blueprint,adaptive --abstraction trainer/runs/abstraction-h200.bin --blueprint trainer/runs/bp.bin"   # Expert (trained) bot
 (cd trainer && cargo test --release)                             # trainer: solvers checked on Kuhn and Leduc poker
 python3 trainer/py/compare.py --game leduc --iterations 5000    # trainer: every solver, CSV + chart in trainer/runs/
 (cd trainer && cargo run --release -- abstraction --out runs/abstraction-h200.bin --buckets 200)   # card buckets (histogram k-means), ~4 min
@@ -128,6 +129,11 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,
   `adaptive`, and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Before changing a strategy, run it; after, run it again with the same `--seed`. A
   difference smaller than the margins means nothing. Do not tune only against one line-up.
+- The Expert bot (`poker-ai`, package `blueprint`) is a Java port of trainer code. After changing the
+  trainer's game, buckets, keys or river solver, rewrite the fixtures
+  (`cd trainer && cargo run --release -- fixtures --out ../poker-ai/src/test/resources/blueprint-fixtures.txt`)
+  and make `TrainerFixturesTest` pass. It needs `blueprint.abstraction` and `blueprint.strategy` in
+  `server.properties`; the files live in `trainer/runs/` (not in git).
 - A bot's memory of opponents (`OpponentBook`, inside its `TableObserver`) may hold only what the
   whole table saw. Hole cards go in only from a `Showdown` message. Never feed it from `HandRecord`,
   the database or the engine.

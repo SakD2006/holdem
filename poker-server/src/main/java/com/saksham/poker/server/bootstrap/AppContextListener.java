@@ -12,6 +12,7 @@ import com.saksham.poker.server.db.HandRecordWriter;
 import com.saksham.poker.server.db.MigrationRunner;
 import com.saksham.poker.server.db.RoomDao;
 import com.saksham.poker.server.db.UserDao;
+import com.saksham.poker.server.io.BlueprintFiles;
 import com.saksham.poker.server.io.HandHistoryFileWriter;
 import com.saksham.poker.server.io.ServerConfig;
 import com.saksham.poker.server.lan.DiscoveryResponder;
@@ -112,7 +113,7 @@ public class AppContextListener implements ServletContextListener {
             return thread;
         });
         BotService bots = new BotService(new BotAccountDao(dataSource), roomManager, botThinkers,
-                config.botThinkMinMs(), config.botThinkMaxMs());
+                config.botThinkMinMs(), config.botThinkMaxMs(), BlueprintFiles.load(config));
         new AppContext(config, sessions, roomService, roomManager, hands, rooms, connections, bots,
                 new MessageCodec()).storeIn(servletContext);
 

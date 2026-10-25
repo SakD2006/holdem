@@ -329,9 +329,25 @@ more than the margin, and it does not lose to the simulation bot.
       bucketing itself.
 - [x] Fix the river leak: re-solve the river during play, hand by hand. River-only LBR 736 to
       7 mbb/hand, postflop 793 to 243, at 60 million iterations.
+- [x] Trainer: Monte Carlo counterfactual regret minimisation, run for minutes, writes a strategy file.
 - [ ] The turn leak (about 200 mbb/hand): re-solve from the turn too.
-- [ ] Trainer: Monte Carlo counterfactual regret minimisation, run for hours, writes a strategy file.
-- [ ] Hard level: the trained strategy as a baseline, with simulation and opponent tracking on top.
-- [ ] Arena results for every level against every other.
 
-**You'll have:** a hard bot whose baseline was learned by playing itself, with numbers to show for it.
+**You'll have:** a strategy learned by playing itself, with numbers to show how hard it is to beat.
+
+## Phase 13 — The trained strategy at the table
+
+- [x] Fixtures written by the trainer (`trainer fixtures`); the Java port in `poker-ai`
+      (`blueprint` package) reproduces them bit for bit: starting-hand classes, canonical keys,
+      river strength, every betting state and information-set key, and a river solve.
+- [x] `BlueprintStrategy`: heads-up, rebuilds its place in the blueprint from the hand's public
+      history (`HandHistory` in `Observation`), maps real bets onto the blueprint's sizes
+      (pseudo-harmonic), keeps both public ranges, re-solves the river, and turns its choice back
+      into a bet of the same pot fraction. Three or more players: the Hard bot's play.
+- [x] Arena (`--bots blueprint,...`): heads-up over 50,000 hands it beats Hard +25.7 ±10.6,
+      Medium +16.5 ±9.7, Solid +41.6 ±6.3 and Easy +21.7 ±7.7 bb/100.
+- [x] Expert level in the server and the app: files named in `server.properties`, loaded once at
+      start-up and shared by every Expert bot; a server without them refuses with
+      `BOT_UNAVAILABLE` and runs on.
+- [ ] Adaptation on top of the blueprint (the paper's main experiment).
+
+**You'll have:** an Expert bot in the "Add bot" menu that plays the trained strategy.

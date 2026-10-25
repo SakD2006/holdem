@@ -151,6 +151,7 @@ strategy; longer training no longer hurts. What is left is mostly the turn (abou
 ## Next
 
 1. The turn: re-solve from the turn as well (with the river as chance), or depth-limited search.
-2. Export the blueprint and the river solver for `poker-ai` and play them in the arena against
-   the current bots.
-3. Opponent modelling on top of search (restricted Nash response).
+2. Opponent modelling on top of the blueprint (restricted Nash response), for the paper.
+
+The blueprint already plays in Java: `poker-ai`'s `blueprint` package (the Expert bot) reads the
+files this trainer writes, and `trainer fixtures` keeps the two in agreement.

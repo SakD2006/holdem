@@ -61,6 +61,12 @@ public final class TableObserver {
     private long stackAfterLastHand = -1;
     /** Whether the hand that has just ended was one this seat was dealt into. */
     private boolean playedLastHand;
+    /** The public actions of this hand, in order, and what the hand started with. */
+    private final List<HandHistory.PublicAction> actions = new ArrayList<>();
+    private final List<Integer> actingSeats = new ArrayList<>();
+    private Map<Integer, Long> startStacks = Map.of();
+    private int smallBlindSeat = -1;
+    private long smallBlind;
 
     /** Takes in one message. Messages that say nothing about the hand are ignored. */
     public void accept(ServerMessage message) {
@@ -145,6 +151,11 @@ public final class TableObserver {
     private void started(HandStarted m) {
         inHand = false; // true once this seat is dealt cards
         bigBlind = m.bigBlind();
+        smallBlind = m.smallBlind();
+        smallBlindSeat = m.smallBlindSeat();
+        startStacks = Map.copyOf(m.stacks());
+        actions.clear();
+        actingSeats.clear();
         buttonSeat = m.buttonSeat();
         dealtSeats = new ArrayList<>(new TreeMap<>(m.stacks()).keySet());
         stacks.clear();
@@ -181,6 +192,9 @@ public final class TableObserver {
         stacks.put(m.seat(), m.stack());
         int[] did = seen.computeIfAbsent(m.seat(), seat -> new int[4]);
         boolean preflop = board.isEmpty();
+        int street = board.isEmpty() ? 0 : board.size() - 2;
+        actions.add(new HandHistory.PublicAction(street, false, m.action(), m.streetBet(), m.allIn()));
+        actingSeats.add(m.seat());
         remember(m, preflop, highestBefore);
         if (m.action() == ActionType.FOLD) {
             folded.add(m.seat());
@@ -305,6 +319,27 @@ public final class TableObserver {
         return new Observation(holeCards, board, pot, toCall, canCheck, canBet, canRaise, minRaiseTo, maxRaiseTo,
                 stacks.getOrDefault(mySeat, 0L), streetBets.getOrDefault(mySeat, 0L), Math.max(1, bigBlind),
                 opponents.size() + 1, Math.max(1, dealtSeats.size()), position, raisesThisStreet, opponents,
-                preflopAggressor == mySeat && mySeat >= 0);
+                preflopAggressor == mySeat && mySeat >= 0, history());
+    }
+
+    /** The hand so far as a public record, with this seat's own actions marked. */
+    private HandHistory history() {
+        boolean headsUp = dealtSeats.size() == 2;
+        long theirs = 0;
+        if (headsUp) {
+            for (int seat : dealtSeats) {
+                if (seat != mySeat) {
+                    theirs = startStacks.getOrDefault(seat, 0L);
+                }
+            }
+        }
+        List<HandHistory.PublicAction> marked = new ArrayList<>(actions.size());
+        for (int i = 0; i < actions.size(); i++) {
+            HandHistory.PublicAction a = actions.get(i);
+            marked.add(new HandHistory.PublicAction(a.street(), actingSeats.get(i) == mySeat, a.type(), a.streetTotal(),
+                    a.allIn()));
+        }
+        return new HandHistory(headsUp, smallBlindSeat == mySeat, smallBlind, bigBlind,
+                startStacks.getOrDefault(mySeat, 0L), theirs, marked);
     }
 }

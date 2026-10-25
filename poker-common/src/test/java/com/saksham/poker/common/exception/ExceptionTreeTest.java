@@ -27,6 +27,7 @@ class ExceptionTreeTest {
         map.put(new RebuyNotAllowedException("m"), ErrorCode.REBUY_NOT_ALLOWED);
         map.put(new NotInRoomException("m"), ErrorCode.NOT_IN_ROOM);
         map.put(new AlreadyInRoomException("m"), ErrorCode.ALREADY_IN_ROOM);
+        map.put(new BotUnavailableException("m"), ErrorCode.BOT_UNAVAILABLE);
         map.put(new InvalidCredentialsException("m"), ErrorCode.INVALID_CREDENTIALS);
         map.put(new UsernameTakenException("m"), ErrorCode.USERNAME_TAKEN);
         map.put(new UnauthorizedException("m"), ErrorCode.UNAUTHORIZED);
@@ -50,6 +51,7 @@ class ExceptionTreeTest {
         assertThat(new InvalidAmountException("m")).isInstanceOf(GameRuleException.class);
         assertThat(new RoomFullException("m")).isInstanceOf(RoomException.class);
         assertThat(new AlreadyInRoomException("m")).isInstanceOf(RoomException.class);
+        assertThat(new BotUnavailableException("m")).isInstanceOf(RoomException.class);
         assertThat(new UsernameTakenException("m")).isInstanceOf(AuthException.class);
         assertThat(new UnauthorizedException("m")).isInstanceOf(AuthException.class);
         assertThat(new ProtocolException("m")).isInstanceOf(PokerException.class);

@@ -101,7 +101,7 @@ fn training_makes_a_strategy_harder_to_exploit() {
     use holdem_trainer::holdem::lbr::{local_best_response, LbrOptions};
     use holdem_trainer::solver::parallel::ParallelMccfr;
     use holdem_trainer::solver::Uniform;
-    let mut solver = ParallelMccfr::new(game(), 20, 4, 50_000, 5);
+    let mut solver = ParallelMccfr::new(game(), 20, 1, 50_000, 5); // one thread: the same every run
     solver.run_until(400_000);
     let game = game();
     let options = LbrOptions::new(6000, 4, 12);
@@ -130,7 +130,8 @@ fn re_solving_the_river_leaves_less_to_win_there() {
     use holdem_trainer::solver::parallel::ParallelMccfr;
     // Nine river buckets (hand categories) leak a lot on the river; solving it hand by hand
     // should leave LBR much less to win there.
-    let mut solver = ParallelMccfr::new(game(), 20, 12, 50_000, 6);
+    // One thread, so the strategy (and so the test) is the same every run.
+    let mut solver = ParallelMccfr::new(game(), 20, 1, 50_000, 6);
     solver.run_until(600_000);
     let game = game();
     let mut options = LbrOptions::new(12_000, 7, 12);

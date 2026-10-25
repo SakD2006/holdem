@@ -199,6 +199,16 @@ who won in big blinds per 100 hands:
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"
 ```
 
+The Expert bot plays a strategy trained by the Rust trainer (see `trainer/README.md`). Give the
+arena the two files the trainer wrote:
+
+```bash
+./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 50000 --bots blueprint,adaptive --abstraction trainer/runs/abstraction-h200.bin --blueprint trainer/runs/bp.bin"
+```
+
+and, to offer Expert bots in the app, name the same files in `server.properties` (see the Expert
+bot section of `server.properties.example`).
+
 `easy`, `simulation` and `adaptive` are the Easy, Medium and Hard bots in the app; `solid` is the
 rule-based bot without its beginner's habits. `caller` (never folds), `maniac` (bets everything),
 `overfolder` (gives up to any bet) and `chameleon` (switches between styles) are flawed opponents

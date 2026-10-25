@@ -4,6 +4,7 @@
 //! poker, here now), then train an abstracted heads-up Hold'em blueprint with Monte Carlo CFR,
 //! export it, and let `poker-ai` play it in Java. Nothing here talks to the game server.
 
+pub mod fixtures;
 pub mod game;
 pub mod games;
 pub mod holdem;

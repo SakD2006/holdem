@@ -30,12 +30,22 @@ import java.util.List;
 public record Observation(List<Card> holeCards, List<Card> board, long pot, long toCall, boolean canCheck,
         boolean canBet, boolean canRaise, long minRaiseTo, long maxRaiseTo, long stack, long streetBet,
         long bigBlind, int playersInHand, int playersDealt, int seatsAfterButton, int raisesThisStreet,
-        List<Opponent> opponents, boolean aggressor) {
+        List<Opponent> opponents, boolean aggressor, HandHistory history) {
 
     public Observation {
         holeCards = List.copyOf(holeCards);
         board = List.copyOf(board);
         opponents = List.copyOf(opponents);
+    }
+
+    /** An observation without the hand's action history. */
+    public Observation(List<Card> holeCards, List<Card> board, long pot, long toCall, boolean canCheck,
+            boolean canBet, boolean canRaise, long minRaiseTo, long maxRaiseTo, long stack, long streetBet,
+            long bigBlind, int playersInHand, int playersDealt, int seatsAfterButton, int raisesThisStreet,
+            List<Opponent> opponents, boolean aggressor) {
+        this(holeCards, board, pot, toCall, canCheck, canBet, canRaise, minRaiseTo, maxRaiseTo, stack, streetBet,
+                bigBlind, playersInHand, playersDealt, seatsAfterButton, raisesThisStreet, opponents, aggressor,
+                HandHistory.EMPTY);
     }
 
     /** An observation that says how many opponents remain but nothing about what they have done. */

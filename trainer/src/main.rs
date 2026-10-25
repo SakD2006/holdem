@@ -47,7 +47,8 @@ const USAGE: &str = "usage:
                  [--lbr-deals L] [--seed S] [--threads T] [--table-bits B] [--epoch E] [--save FILE]
   trainer lbr --abstraction FILE|categories --blueprint FILE [--deals D] [--seed S] [--threads T]
               [--by-street yes]
-  trainer duel --abstraction FILE|categories --a FILE --b FILE [--deals D] [--seed S]";
+  trainer duel --abstraction FILE|categories --a FILE --b FILE [--deals D] [--seed S]
+  trainer fixtures --out FILE   (examples the Java port in poker-ai must reproduce)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -74,6 +75,14 @@ fn run(args: &[String]) -> Result<(), String> {
     }
     if command == "duel" {
         return duel_blueprints(&options);
+    }
+    if command == "fixtures" {
+        let out = options.get("out").ok_or("--out is required")?;
+        let mut file = create(out)?;
+        file.write_all(holdem_trainer::fixtures::fixtures(number(&options, "seed", 1)?).as_bytes())
+            .map_err(io)?;
+        eprintln!("fixtures written to {out}");
+        return Ok(());
     }
     let game = options.get("game").map(String::as_str).ok_or("--game is required")?;
     match (command.as_str(), game) {
