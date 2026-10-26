@@ -1,0 +1,57 @@
+% arXiv preprint. Same text as the ICGA manuscript (main.tex): abstract.tex and body.tex.
+% arXiv builds it with pdflatex; upload arxiv.tex, abstract.tex and body.tex (see README.md).
+\documentclass[11pt]{article}
+
+\usepackage{iftex}
+\ifXeTeX  % Tectonic runs XeTeX: use the TeX Gyre clone of Times
+  \usepackage{fontspec}
+  \setmainfont{texgyretermes}[Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+    ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+  \setsansfont{texgyreheros}[Extension=.otf, Scale=0.95, UprightFont=*-regular,
+    BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\else
+  \usepackage[T1]{fontenc}
+  \usepackage{newtxtext,newtxmath}
+\fi
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}  % ragged-right table text
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[round]{natbib}
+\bibpunct{(}{)}{;}{a}{,}{,}  % (Author, year); the list in body.tex is APA 7
+\usepackage{url}
+\usepackage[labelsep=period,font=small,labelfont=bf]{caption}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+
+\newcommand{\bbh}{bb/100}
+\renewcommand{\figurename}{Fig.}
+\newcommand{\tablefont}{\small\centering}  % centred tables in the text font
+
+% End matter used by body.tex. Sage defines these; a preprint keeps only the acknowledgements.
+\newenvironment{acks}[1]{\section*{Acknowledgements}#1}{}
+\newenvironment{dci}[1]{}{}
+\newenvironment{funding}[1]{}{}
+
+\title{Safe Opponent Adaptation in No-Limit Hold'em from Public Information}
+\author{Saksham Dubey\\[4pt]
+  \normalsize [School of Computer Science and Engineering], [VIT University], [Vellore], India\\
+  \normalsize \texttt{saksham.dubey2024@vitstudent.ac.in}}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+
+\medskip\noindent{\raggedright\textbf{Keywords:} Texas Hold'em, opponent modelling, safe exploitation,
+Monte Carlo simulation, imperfect-information games\par}
+\end{abstract}
+
+\input{body}
+
+\end{document}

@@ -22,6 +22,8 @@ poker-server      runs on the host machine via Tomcat 10.1: JSON API servlets, W
                   endpoint, rooms, JDBC, hand-history files, a few JSP pages
 poker-client-fx   JavaFX desktop app: connect, login/register, create/join room, play
 poker-bot-client  headless test bots that join a room like a human (testing alone; future AI host)
+trainer           Rust + Python, outside Maven: self-play solvers (CFR family) that produce strategy
+                  files for poker-ai. Never a dependency of any Java module.
 ```
 
 Dependencies: `common ← engine ← ai ← server`, `common ← client-fx`, `common ← bot-client`.
@@ -67,6 +69,13 @@ SLF4J + Logback.
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --room ABC234 --bots 3"
 ./mvnw -pl poker-bot-client -am compile exec:java -Dexec.args="--server 127.0.0.1 --bots 6 --hands 500 --think 0"   # soak: bots make their own room
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"   # arena: bots against bots
+./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 50000 --bots blueprint,adaptive --abstraction trainer/runs/abstraction-h200.bin --blueprint trainer/runs/bp.bin"   # Expert (trained) bot
+(cd trainer && cargo test --release)                             # trainer: solvers checked on Kuhn and Leduc poker
+python3 trainer/py/compare.py --game leduc --iterations 5000    # trainer: every solver, CSV + chart in trainer/runs/
+(cd trainer && cargo run --release -- abstraction --out runs/abstraction-h200.bin --buckets 200)   # card buckets (histogram k-means), ~4 min
+(cd trainer && cargo run --release -- holdem --abstraction runs/abstraction-50.bin --iterations 20000000 --save runs/bp.bin)
+(cd trainer && cargo run --release -- lbr --abstraction runs/abstraction-50.bin --blueprint runs/bp.bin)   # strength: LBR, lower is better
+(cd trainer && cargo run --release -- lbr --abstraction runs/abstraction-h200.bin --blueprint runs/bp.bin --resolve-river 200)   # with river re-solving
 java -cp poker-common/target/classes:poker-engine/target/classes:poker-engine/target/test-classes \
      com.saksham.poker.engine.hand.EngineConsoleDemo            # print one random hand (after test-compile)
 ./mvnw verify -DexcludedTags=                                   # also run tests tagged db and perf
@@ -112,10 +121,21 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
 - Bots: `poker-ai` holds the strategies (pure, tested alone); `server.player.AiController` runs one
   in a seat. `AiTableTest` plays hundreds of hands with real bots on real threads and is the test to
   run after touching either. `poker-bot-client` is something else: network test players for soak runs.
+- In the trainer, strength is local best response (`trainer lbr`, postflop by default; `--by-street yes`
+  splits it), in mbb/hand, lower is better, about ±75 at 100,000 deals. Seed parallel jobs with
+  `Rng::stream(seed, index)`, never `Rng::new(seed ^ index)`: the latter gives overlapping streams. Head-to-head wins between two strategies of the same abstraction do not show strength:
+  more training can beat less training and still be easier to exploit (overfitting to the buckets).
 - The arena (`poker-ai`, `ArenaMain`) is how bot strength is measured: about 100,000 hands a
   second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,
-  `adaptive`, and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Before changing a strategy, run it; after, run it again with the same `--seed`. A
+  `adaptive`, `blueprint` and `blueprint-adaptive` (Expert; need `--abstraction` and `--blueprint`),
+  and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Heads-up results
+  vary a lot: compare strategies over 20,000 hands or more (about ±10 to ±20 bb/100). Before changing a strategy, run it; after, run it again with the same `--seed`. A
   difference smaller than the margins means nothing. Do not tune only against one line-up.
+- The Expert bot (`poker-ai`, package `blueprint`) is a Java port of trainer code. After changing the
+  trainer's game, buckets, keys or river solver, rewrite the fixtures
+  (`cd trainer && cargo run --release -- fixtures --out ../poker-ai/src/test/resources/blueprint-fixtures.txt`)
+  and make `TrainerFixturesTest` pass. It needs `blueprint.abstraction` and `blueprint.strategy` in
+  `server.properties`; the files live in `trainer/runs/` (not in git).
 - A bot's memory of opponents (`OpponentBook`, inside its `TableObserver`) may hold only what the
   whole table saw. Hole cards go in only from a `Showdown` message. Never feed it from `HandRecord`,
   the database or the engine.

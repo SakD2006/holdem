@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,9 @@ public final class ServerConfig {
     private final RoomTimings roomTimings;
     private final int botThinkMinMs;
     private final int botThinkMaxMs;
+    private final Optional<Path> blueprintAbstraction;
+    private final Optional<Path> blueprintStrategy;
+    private final int blueprintResolve;
 
     /** Builds the settings from properties, using the default for anything missing. */
     public ServerConfig(Properties properties) {
@@ -56,6 +60,14 @@ public final class ServerConfig {
                 number(properties, "room.idle.minutes", 30, 1, 24 * 60) * 60_000L);
         this.botThinkMinMs = number(properties, "bot.think.min.ms", 800, 0, 60_000);
         this.botThinkMaxMs = Math.max(botThinkMinMs, number(properties, "bot.think.max.ms", 2_500, 0, 60_000));
+        this.blueprintAbstraction = path(properties, "blueprint.abstraction");
+        this.blueprintStrategy = path(properties, "blueprint.strategy");
+        this.blueprintResolve = number(properties, "blueprint.resolve.iterations", 200, 0, 5_000);
+    }
+
+    private static Optional<Path> path(Properties properties, String key) {
+        String text = properties.getProperty(key);
+        return text == null || text.isBlank() ? Optional.empty() : Optional.of(Path.of(text.trim()));
     }
 
     /**
@@ -149,6 +161,21 @@ public final class ServerConfig {
     /** The longest pause a computer player takes before acting; never less than the shortest. */
     public int botThinkMaxMs() {
         return botThinkMaxMs;
+    }
+
+    /** The trainer's card abstraction file for Expert bots, if the server was given one. */
+    public Optional<Path> blueprintAbstraction() {
+        return blueprintAbstraction;
+    }
+
+    /** The trainer's strategy file for Expert bots, if the server was given one. */
+    public Optional<Path> blueprintStrategy() {
+        return blueprintStrategy;
+    }
+
+    /** Iterations Expert bots spend re-solving the river; 0 plays the river buckets instead. */
+    public int blueprintResolveIterations() {
+        return blueprintResolve;
     }
 
     /** The waits rooms use between hands, during run-outs and after a disconnect. */

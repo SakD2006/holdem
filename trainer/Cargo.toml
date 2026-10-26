@@ -1,0 +1,22 @@
+[package]
+name = "holdem-trainer"
+version = "0.1.0"
+edition = "2021"
+description = "Self-play trainer for the Hold'em bots: games, the CFR family of solvers, exact exploitability"
+publish = false
+
+# No dependencies on purpose: the solver must be easy to read, build offline and replay exactly.
+[dependencies]
+
+[[bin]]
+name = "trainer"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+# Tests run solvers for thousands of iterations; unoptimised they take minutes.
+[profile.test]
+opt-level = 3

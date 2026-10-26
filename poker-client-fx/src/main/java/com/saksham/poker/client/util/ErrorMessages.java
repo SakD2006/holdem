@@ -40,6 +40,8 @@ public final class ErrorMessages {
             case INVALID_AMOUNT -> "That amount is not allowed. Choose one between the smallest and largest shown.";
             case ROOM_NOT_FOUND -> "There is no room with that code. Check the code with the host.";
             case ROOM_FULL -> "Every seat in that room is taken. Ask the host to make a bigger room.";
+            case BOT_UNAVAILABLE -> "This server has no Expert bot. The person running the server can add one: "
+                    + "see \"Expert bot\" in server.properties.example.";
             case ROOM_CLOSED -> "That room has closed. Ask the host to create a new one.";
             case SEAT_TAKEN -> "Someone else has just taken that seat. Pick another.";
             case NOT_HOST -> "Only the host of the room can do that.";

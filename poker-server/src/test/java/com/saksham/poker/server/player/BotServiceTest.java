@@ -14,7 +14,9 @@ class BotServiceTest {
     void everyLevelHasNamesAStrategyAndALabel() {
         for (BotLevel level : BotLevel.values()) {
             assertThat(BotService.NAMES).containsKey(level);
-            assertThat(Strategies.forLevel(level)).isNotNull();
+            if (level != BotLevel.EXPERT) { // Expert plays trained files the server loads
+                assertThat(Strategies.forLevel(level)).isNotNull();
+            }
             assertThat(level.label()).isNotBlank();
         }
     }

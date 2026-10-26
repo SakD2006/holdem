@@ -1,6 +1,8 @@
 package com.saksham.poker.server.player;
 
+import com.saksham.poker.ai.BotStrategy;
 import com.saksham.poker.ai.Strategies;
+import com.saksham.poker.common.exception.BotUnavailableException;
 import com.saksham.poker.common.exception.InvalidRequestException;
 import com.saksham.poker.common.exception.NotInRoomException;
 import com.saksham.poker.common.exception.PokerException;
@@ -33,7 +35,8 @@ public final class BotService {
     static final Map<BotLevel, List<String>> NAMES = Map.of(
             BotLevel.EASY, List.of("Ada", "Babbage", "Curie", "Dijkstra", "Euler", "Fermat"),
             BotLevel.MEDIUM, List.of("Gauss", "Hopper", "Knuth", "Lovelace", "Noether", "Turing"),
-            BotLevel.HARD, List.of("Bayes", "Laplace", "Markov", "Nash", "Neumann", "Shannon"));
+            BotLevel.HARD, List.of("Bayes", "Laplace", "Markov", "Nash", "Neumann", "Shannon"),
+            BotLevel.EXPERT, List.of("Borel", "Harsanyi", "Kuhn", "Morgenstern", "Selten", "Zermelo"));
     /** How many account names are tried before giving up; far more than any server needs. */
     private static final int MAX_ACCOUNTS = 500;
 
@@ -42,6 +45,8 @@ public final class BotService {
     private final ScheduledExecutorService thinkers;
     private final long thinkMinMs;
     private final long thinkMaxMs;
+    /** The strategy every Expert bot shares, or null if this server has none. */
+    private final BotStrategy expert;
 
     /**
      * @param accounts where bot accounts are kept
@@ -49,14 +54,16 @@ public final class BotService {
      * @param thinkers the threads bots think on
      * @param thinkMinMs the shortest pause a bot takes before acting, in milliseconds
      * @param thinkMaxMs the longest
+     * @param expert the Expert level's strategy, or empty if this server cannot offer it
      */
     public BotService(BotAccountDao accounts, RoomManager rooms, ScheduledExecutorService thinkers, long thinkMinMs,
-            long thinkMaxMs) {
+            long thinkMaxMs, Optional<BotStrategy> expert) {
         this.accounts = accounts;
         this.rooms = rooms;
         this.thinkers = thinkers;
         this.thinkMinMs = thinkMinMs;
         this.thinkMaxMs = thinkMaxMs;
+        this.expert = expert.orElse(null);
     }
 
     /**
@@ -65,10 +72,14 @@ public final class BotService {
      *
      * @throws NotInRoomException if the asker is not in a room
      * @throws InvalidRequestException if no level was given
+     * @throws BotUnavailableException if the level is Expert and this server has no trained files
      */
     public void add(long hostUserId, BotLevel level) throws PokerException {
         if (level == null) {
             throw new InvalidRequestException("Choose how well the bot should play.");
+        }
+        if (level == BotLevel.EXPERT && expert == null) {
+            throw new BotUnavailableException("This server has no Expert bot: it was not given the trained files.");
         }
         if (rooms.roomOf(hostUserId).isEmpty()) {
             throw new NotInRoomException("You are not in a room. Join one with its code first.");
@@ -92,8 +103,13 @@ public final class BotService {
 
     private boolean seat(long hostUserId, BotAccount account) throws NotInRoomException {
         AiController controller = new AiController(account.id(), account.username(),
-                Strategies.forLevel(account.level()), new Random(), this::submit, thinkers, thinkMinMs, thinkMaxMs);
+                strategyFor(account.level()), new Random(), this::submit, thinkers, thinkMinMs, thinkMaxMs);
         return rooms.addBot(hostUserId, account.id(), account.username(), controller);
+    }
+
+    /** The strategy for a level; Expert bots all share one, which is safe because it keeps no state. */
+    private BotStrategy strategyFor(BotLevel level) {
+        return level == BotLevel.EXPERT ? expert : Strategies.forLevel(level);
     }
 
     /** A bot's command for its room. If the bot has just been removed, there is nothing to do. */

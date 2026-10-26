@@ -10,7 +10,13 @@ public enum BotLevel {
      * Plays as Medium does and also studies each opponent: it remembers how they bet and what they
      * showed, bluffs the ones who fold and calls the ones who bluff. Gets harder the longer you play it.
      */
-    HARD("Hard");
+    HARD("Hard"),
+    /**
+     * Plays a strategy trained by self-play (the trainer's blueprint) and solves the river card by
+     * card, heads-up; with more players it plays as Hard does. Only on servers given the trained
+     * files.
+     */
+    EXPERT("Expert");
 
     private final String label;
 
