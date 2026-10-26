@@ -1,6 +1,6 @@
 package com.saksham.poker.ai;
 
-import com.saksham.poker.ai.blueprint.BlueprintStrategy;
+import com.saksham.poker.ai.blueprint.AdaptiveBlueprintStrategy;
 import com.saksham.poker.ai.blueprint.BlueprintTable;
 import com.saksham.poker.ai.blueprint.CardBuckets;
 import com.saksham.poker.common.protocol.dto.BotLevel;
@@ -31,12 +31,14 @@ public final class Strategies {
     }
 
     /**
-     * The Expert level: a trained blueprint, heads-up, with the river re-solved, and the Hard level's
-     * play when more than two players are dealt in. Stateless, so one can serve every Expert bot.
+     * The Expert level: a trained blueprint, heads-up, with the river re-solved and its play bent,
+     * within bounds, toward what each opponent's habits give away; the Hard level's play when more
+     * than two players are dealt in. Stateless, so one can serve every Expert bot (what it knows of
+     * an opponent lives in each bot's own {@link TableObserver}).
      *
      * @param resolveIterations iterations of river re-solving, or 0 to play the river buckets
      */
     public static BotStrategy expert(CardBuckets buckets, BlueprintTable blueprint, int resolveIterations) {
-        return new BlueprintStrategy(buckets, blueprint, new AdaptiveStrategy(HARD_DEALS), resolveIterations);
+        return new AdaptiveBlueprintStrategy(buckets, blueprint, new AdaptiveStrategy(HARD_DEALS), resolveIterations);
     }
 }

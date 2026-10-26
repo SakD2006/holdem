@@ -185,8 +185,10 @@ public final class TableObserver {
 
     private void acted(PlayerActed m) {
         long highestBefore = 0;
+        long potBefore = collected;
         for (long bet : streetBets.values()) {
             highestBefore = Math.max(highestBefore, bet);
+            potBefore += bet;
         }
         streetBets.put(m.seat(), m.streetBet());
         stacks.put(m.seat(), m.stack());
@@ -195,7 +197,7 @@ public final class TableObserver {
         int street = board.isEmpty() ? 0 : board.size() - 2;
         actions.add(new HandHistory.PublicAction(street, false, m.action(), m.streetBet(), m.allIn()));
         actingSeats.add(m.seat());
-        remember(m, preflop, highestBefore);
+        remember(m, preflop, highestBefore, potBefore, did[BET_THIS_STREET] == 1);
         if (m.action() == ActionType.FOLD) {
             folded.add(m.seat());
         } else if (m.action() == ActionType.BET || m.action() == ActionType.RAISE) {
@@ -212,8 +214,13 @@ public final class TableObserver {
         }
     }
 
-    /** Adds one action to the long-term notes on whoever made it. */
-    private void remember(PlayerActed m, boolean preflop, long highestBefore) {
+    /**
+     * Adds one action to the long-term notes on whoever made it.
+     *
+     * @param potBefore the chips in the middle and in front of players before the action
+     * @param betBefore whether the player had already bet or raised on this street
+     */
+    private void remember(PlayerActed m, boolean preflop, long highestBefore, long potBefore, boolean betBefore) {
         OpponentBook.Page page = book.page(playerIn(m.seat()));
         boolean raise = m.action() == ActionType.BET || m.action() == ActionType.RAISE;
         boolean fold = m.action() == ActionType.FOLD;
@@ -238,8 +245,12 @@ public final class TableObserver {
         }
         if (highestBefore > streetBetBefore(m)) {
             page.facedBet++;
+            long toCall = highestBefore - streetBetBefore(m);
+            int cell = FoldProfile.cell(betBefore, FoldProfile.size((double) toCall / (potBefore + toCall)));
+            page.facedIn[cell]++;
             if (fold) {
                 page.foldedToBet++;
+                page.foldedIn[cell]++;
             }
         }
     }

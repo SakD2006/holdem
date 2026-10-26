@@ -34,6 +34,9 @@ public final class OpponentBook {
         int postflopBets;
         int shownAfterBetting;
         int shownBluffs;
+        /** Facing a bet after the flop, by situation ({@link FoldProfile#cell}): times seen and folds. */
+        final int[] facedIn = new int[FoldProfile.CELLS];
+        final int[] foldedIn = new int[FoldProfile.CELLS];
     }
 
     private final Map<Long, Page> pages = new HashMap<>();
@@ -61,7 +64,17 @@ public final class OpponentBook {
                 blend(typical.foldsToBet(), BET_WEIGHT, page.foldedToBet, page.facedBet),
                 blend(typical.aggression(), BET_WEIGHT, page.postflopBets, page.postflopActions),
                 blend(typical.bluffs(), SHOWDOWN_WEIGHT, page.shownBluffs, page.shownAfterBetting),
-                page.hands);
+                page.hands, folds(page));
+    }
+
+    /** Folds by situation, each moving from the typical player's rate as it is seen. */
+    private static FoldProfile folds(Page page) {
+        double[] rates = new double[FoldProfile.CELLS];
+        double[] typical = FoldProfile.TYPICAL.rates();
+        for (int i = 0; i < FoldProfile.CELLS; i++) {
+            rates[i] = blend(typical[i], BET_WEIGHT, page.foldedIn[i], page.facedIn[i]);
+        }
+        return new FoldProfile(rates, page.facedIn);
     }
 
     /**

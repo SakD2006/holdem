@@ -5,6 +5,7 @@ import com.saksham.poker.ai.BotStrategy;
 import com.saksham.poker.ai.MonteCarloStrategy;
 import com.saksham.poker.ai.RuleBasedStrategy;
 import com.saksham.poker.ai.blueprint.AbstractionData;
+import com.saksham.poker.ai.blueprint.AdaptiveBlueprintStrategy;
 import com.saksham.poker.ai.blueprint.BlueprintStrategy;
 import com.saksham.poker.ai.blueprint.BlueprintTable;
 import java.io.IOException;
@@ -52,19 +53,26 @@ public final class ArenaMain {
                 throw new IllegalArgumentException("Option " + args[args.length - 1] + " needs a value.");
             }
             BotStrategy blueprint = null;
+            BotStrategy adaptiveBlueprint = null;
             if (line.contains("blueprint")) {
                 if (abstractionFile == null || blueprintFile == null) {
                     throw new IllegalArgumentException("The blueprint bot needs --abstraction FILE and --blueprint FILE "
                             + "(written by the trainer).");
                 }
                 long loading = System.nanoTime();
-                blueprint = new BlueprintStrategy(AbstractionData.read(map(abstractionFile)),
-                        BlueprintTable.read(map(blueprintFile)), new AdaptiveStrategy(deals), resolve);
+                AbstractionData buckets = AbstractionData.read(map(abstractionFile));
+                BlueprintTable table = BlueprintTable.read(map(blueprintFile));
+                blueprint = new BlueprintStrategy(buckets, table, new AdaptiveStrategy(deals), resolve);
+                adaptiveBlueprint = new AdaptiveBlueprintStrategy(buckets, table, new AdaptiveStrategy(deals), resolve);
                 System.out.printf("blueprint loaded in %.1f seconds%n", (System.nanoTime() - loading) / 1e9);
             }
             List<Arena.Entrant> entrants = new ArrayList<>();
             for (String kind : line.split(",")) {
-                BotStrategy strategy = kind.trim().equals("blueprint") ? blueprint : strategy(kind.trim(), deals);
+                BotStrategy strategy = switch (kind.trim()) {
+                    case "blueprint" -> blueprint;
+                    case "blueprint-adaptive" -> adaptiveBlueprint;
+                    default -> strategy(kind.trim(), deals);
+                };
                 entrants.add(new Arena.Entrant(kind.trim() + "-" + (entrants.size() + 1), strategy));
             }
             int threads = Runtime.getRuntime().availableProcessors();
@@ -74,7 +82,7 @@ public final class ArenaMain {
             System.out.printf("%.1f seconds on %d threads%n", (System.nanoTime() - started) / 1e9, threads);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            System.err.println("Usage: ArenaMain [--hands N] [--bots easy,solid,simulation,adaptive,blueprint,caller,maniac,"
+            System.err.println("Usage: ArenaMain [--hands N] [--bots easy,solid,simulation,adaptive,blueprint,blueprint-adaptive,caller,maniac,"
                     + "overfolder,chameleon] [--seed N] [--deals N] [--abstraction FILE --blueprint FILE [--resolve N]]");
             System.exit(2);
         } catch (IOException e) {
@@ -101,7 +109,7 @@ public final class ArenaMain {
             case "overfolder" -> new OverFolder();
             case "chameleon" -> new Chameleon();
             default -> throw new IllegalArgumentException("There is no bot called \"" + kind
-                    + "\". Choose from easy, solid, simulation, adaptive, blueprint, caller, maniac, overfolder, chameleon.");
+                    + "\". Choose from easy, solid, simulation, adaptive, blueprint, blueprint-adaptive, caller, maniac, overfolder, chameleon.");
         };
     }
 }

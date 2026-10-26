@@ -14,8 +14,15 @@ package com.saksham.poker.ai;
  * @param handsSeen how many hands the bot has watched them play
  */
 public record Tendencies(double entersPot, double raisesPreflop, double foldsToRaisePreflop, double foldsToBet,
-        double aggression, double bluffs, int handsSeen) {
+        double aggression, double bluffs, int handsSeen, FoldProfile folds) {
 
     /** A typical player at a casual table. Used for anyone not yet seen. */
-    public static final Tendencies TYPICAL = new Tendencies(0.3, 0.18, 0.6, 0.45, 0.35, 0.3, 0);
+    public static final Tendencies TYPICAL = new Tendencies(0.3, 0.18, 0.6, 0.45, 0.35, 0.3, 0, FoldProfile.TYPICAL);
+
+    /** Habits without folds by situation: those of the typical player. */
+    public Tendencies(double entersPot, double raisesPreflop, double foldsToRaisePreflop, double foldsToBet,
+            double aggression, double bluffs, int handsSeen) {
+        this(entersPot, raisesPreflop, foldsToRaisePreflop, foldsToBet, aggression, bluffs, handsSeen,
+                FoldProfile.TYPICAL);
+    }
 }

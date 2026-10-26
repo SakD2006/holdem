@@ -348,6 +348,15 @@ more than the margin, and it does not lose to the simulation bot.
 - [x] Expert level in the server and the app: files named in `server.properties`, loaded once at
       start-up and shared by every Expert bot; a server without them refuses with
       `BOT_UNAVAILABLE` and runs on.
-- [ ] Adaptation on top of the blueprint (the paper's main experiment).
+- [x] Adaptation on top of the blueprint (`AdaptiveBlueprintStrategy`, now the Expert level):
+      after the flop it values each action as local best response would, once with the
+      blueprint's beliefs and once with the opponent as observed, and moves at most 60% toward the
+      observed best action, by how much the opponent model (not the crude valuation) favours it.
+      Folds are noted by situation (`FoldProfile`: had they bet this street, and the bet size)
+      and compared with the blueprint's own self-play rates; differences under 10 points are
+      ignored. Heads-up, 20,000 hands (plain blueprint in brackets): calling station +1,770
+      (+243), maniac +643 (+273), chameleon +367 (+88), over-folder +38 (+45), Solid +34 (+37),
+      Easy +22 (+27), Medium +17 (+16); Hard, 60,000 hands, +17 ±12 (+34 ±10).
+- [ ] Benchmarks against people and outside bots (Slumbot).
 
 **You'll have:** an Expert bot in the "Add bot" menu that plays the trained strategy.

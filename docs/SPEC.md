@@ -547,6 +547,16 @@ poker-server
   share one instance; the files (`blueprint.abstraction`, `blueprint.strategy`, about 300 MB in
   memory) are loaded at start-up, and a server without them answers `BOT_UNAVAILABLE`.
   `TrainerFixturesTest` checks the Java port against examples the trainer writes.
+- **Expert adapts:** `AdaptiveBlueprintStrategy` (the Expert level) plays the blueprint bent toward
+  what each opponent's habits give away. After the flop it values every action as local best
+  response would (equity against the opponent's range; the share of their range that folds to a
+  bet), once with the blueprint's own beliefs and once with the opponent as observed, and plays
+  `(1 − λ)·blueprint + λ·best`, where `best` is the observed best action and `λ` (at most 0.6) grows
+  with the evidence and with how much more the opponent model favours `best` than the blueprint's
+  beliefs already do. The observed fold chance is the blueprint's, moved by how much this opponent's
+  fold rate in the same situation (`FoldProfile`: whether they had bet on the street, and the bet
+  size) differs from the blueprint's own self-play rate, ignoring differences under 10 points.
+  Extra folds come from their weakest hands first. With no notes it plays exactly the blueprint.
 - **Memory (Hard):** `TableObserver` keeps an `OpponentBook` for as long as the bot sits in the
   room. Per player it counts what the whole table could see: how often they enter a pot, raise,
   fold to a raise before the flop, fold to a bet after it, and bet; and, when their cards are

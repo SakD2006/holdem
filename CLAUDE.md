@@ -127,7 +127,9 @@ Always use the wrapper (`./mvnw`, or `mvnw.cmd` on Windows), not a system `mvn`.
   more training can beat less training and still be easier to exploit (overfitting to the buckets).
 - The arena (`poker-ai`, `ArenaMain`) is how bot strength is measured: about 100,000 hands a
   second, results in big blinds per 100 hands with a margin. Bots: `easy`, `solid`, `simulation`,
-  `adaptive`, and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Before changing a strategy, run it; after, run it again with the same `--seed`. A
+  `adaptive`, `blueprint` and `blueprint-adaptive` (Expert; need `--abstraction` and `--blueprint`),
+  and flawed ones to test against: `caller`, `maniac`, `overfolder`, `chameleon`. Heads-up results
+  vary a lot: compare strategies over 20,000 hands or more (about ±10 to ±20 bb/100). Before changing a strategy, run it; after, run it again with the same `--seed`. A
   difference smaller than the margins means nothing. Do not tune only against one line-up.
 - The Expert bot (`poker-ai`, package `blueprint`) is a Java port of trainer code. After changing the
   trainer's game, buckets, keys or river solver, rewrite the fixtures

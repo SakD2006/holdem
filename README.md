@@ -199,8 +199,9 @@ who won in big blinds per 100 hands:
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 200000 --bots easy,easy,solid,solid,simulation,simulation"
 ```
 
-The Expert bot plays a strategy trained by the Rust trainer (see `trainer/README.md`). Give the
-arena the two files the trainer wrote:
+The Expert bot plays a strategy trained by the Rust trainer (see `trainer/README.md`), bent toward
+each opponent's habits; `blueprint` is the same strategy without the adapting, `blueprint-adaptive`
+the Expert bot itself. Give the arena the two files the trainer wrote:
 
 ```bash
 ./mvnw -q -pl poker-ai -am compile exec:java -Dexec.args="--hands 50000 --bots blueprint,adaptive --abstraction trainer/runs/abstraction-h200.bin --blueprint trainer/runs/bp.bin"

@@ -21,9 +21,10 @@ import java.util.Random;
  * a fallback strategy.
  *
  * <p>Stateless, so one instance can serve many tables and threads; the river solution, the costly
- * part, is kept per thread for the hand being played.
+ * part, is kept per thread for the hand being played. Subclasses in this package may change the
+ * base strategy before an action is picked ({@link #adjust}).
  */
-public final class BlueprintStrategy extends BotStrategy {
+public class BlueprintStrategy extends BotStrategy {
 
     /**
      * The re-solver never believes an opponent action less likely than this: a person can play a
@@ -63,7 +64,7 @@ public final class BlueprintStrategy extends BotStrategy {
         if (!history.headsUp() || seen.holeCards().size() != 2 || history.bigBlindAmount() <= 0) {
             return fallback.decide(seen, random);
         }
-        Replay replay = Replay.of(seen, abstraction, table);
+        Replay replay = Replay.of(seen, abstraction, table, temper(seen));
         if (replay == null) {
             return fallback.decide(seen, random);
         }
@@ -71,13 +72,36 @@ public final class BlueprintStrategy extends BotStrategy {
         int[] legal = hand.legalActions();
         double[] probs = null;
         if (hand.street() == 3 && resolveIterations > 0 && replay.riverRoot != null) {
-            probs = river(replay).probabilities(hand, Cards.comboIndex(replay.hole[0], replay.hole[1]));
+            replay.solution = river(replay);
+            probs = replay.solution.probabilities(hand, Cards.comboIndex(replay.hole[0], replay.hole[1]));
         }
         if (probs == null) {
             int bucket = abstraction.bucket(hand.street(), replay.hole[0], replay.hole[1], replay.board);
             probs = table.strategyOrCall(hand.key(bucket), legal);
         }
+        probs = adjust(seen, replay, legal, probs, random);
         return real(hand, legal[pick(probs, random)], replay.me, seen);
+    }
+
+    /**
+     * How little the opponent's actions should say about their cards, from 0 (as the blueprint
+     * believes) to 1 (nothing): used for the opponent's model range ({@link Ranges#model}). Here 0.
+     */
+    double temper(Observation seen) {
+        return 0;
+    }
+
+    /** Changes the base strategy before an action is picked. Here it is played as it is. */
+    double[] adjust(Observation seen, Replay replay, int[] legal, double[] base, Random random) {
+        return base;
+    }
+
+    CardBuckets buckets() {
+        return abstraction;
+    }
+
+    BlueprintTable table() {
+        return table;
     }
 
     /** The river solution for this hand, solved once per thread and reused. */
@@ -126,12 +150,16 @@ public final class BlueprintStrategy extends BotStrategy {
         AbstractHand hand;
         AbstractHand riverRoot;
         double[][] riverRanges;
+        /** The public ranges and the opponent's model range, up to the current decision. */
+        Ranges ranges;
+        /** The river solution, once there is one. */
+        RiverSolver.Solution solution;
         /** Identifies the hand and its betting up to the river: the river cache's key. */
         long riverKey;
         private long running;
 
         /** Rebuilds the hand, or returns null if the real betting cannot be followed. */
-        static Replay of(Observation seen, CardBuckets abstraction, BlueprintTable table) {
+        static Replay of(Observation seen, CardBuckets abstraction, BlueprintTable table, double temper) {
             HandHistory history = seen.history();
             Replay r = new Replay();
             r.me = history.smallBlind() ? 0 : 1;
@@ -141,7 +169,8 @@ public final class BlueprintStrategy extends BotStrategy {
                 r.board[i] = FastHand.code(seen.board().get(i));
             }
             double scale = AbstractHand.BIG_BLIND / (double) history.bigBlindAmount();
-            Ranges ranges = new Ranges(abstraction, table, r.board);
+            Ranges ranges = new Ranges(abstraction, table, r.board, 1 - r.me, temper);
+            r.ranges = ranges;
             AbstractHand hand = AbstractHand.start();
             List<HandHistory.PublicAction> actions = history.actions();
             r.running = 0x5EED_0000_0000_0001L ^ ((long) r.hole[0] << 8 | r.hole[1]);
@@ -218,24 +247,51 @@ public final class BlueprintStrategy extends BotStrategy {
         private final BlueprintTable table;
         private final int[] board;
         private final double[][] weights = new double[2][Cards.COMBOS];
+        /** The opponent's range as an adapting player sees it: updated with tempered evidence. */
+        private final double[] model = new double[Cards.COMBOS];
+        private final int opponent;
+        private final double temper;
         private int street = -1;
         private int[] buckets;
 
-        Ranges(CardBuckets abstraction, BlueprintTable table, int[] board) {
+        Ranges(CardBuckets abstraction, BlueprintTable table, int[] board, int opponent, double temper) {
             this.abstraction = abstraction;
             this.table = table;
             this.board = board;
+            this.opponent = opponent;
+            this.temper = temper;
             java.util.Arrays.fill(weights[0], 1);
             java.util.Arrays.fill(weights[1], 1);
+            java.util.Arrays.fill(model, 1);
+        }
+
+        /** Every hand's bucket on {@code street}, with that street's board cards taken out of the ranges. */
+        int[] bucketsOn(int street) {
+            if (street != this.street) {
+                this.street = street;
+                removeBoard(street == 0 ? 0 : street + 2);
+                buckets = abstraction.rangeBuckets(street, board);
+            }
+            return buckets;
+        }
+
+        /**
+         * The opponent's range for an adapting player: like the public range, but each action counts
+         * as evidence about their cards only in part, {@code (1 − temper)·p + temper}. Live: do not
+         * change it.
+         */
+        double[] model() {
+            return model;
+        }
+
+        /** A player's public range, as the blueprint implies it. Live: do not change it. */
+        double[] publicRange(int player) {
+            return weights[player];
         }
 
         /** Multiplies the actor's range by the blueprint's chance of {@code action} with each hand. */
         void update(AbstractHand hand, int actor, int action, double floor) {
-            if (hand.street() != street) {
-                street = hand.street();
-                removeBoard(street == 0 ? 0 : street + 2);
-                buckets = abstraction.rangeBuckets(street, board);
-            }
+            bucketsOn(hand.street());
             int[] legal = hand.legalActions();
             int choice = 0;
             while (legal[choice] != action) {
@@ -255,6 +311,19 @@ public final class BlueprintStrategy extends BotStrategy {
                 }
                 w[c] *= Math.max(byBucket[b], floor);
             }
+            if (actor == opponent) {
+                for (int c = 0; c < Cards.COMBOS; c++) {
+                    if (model[c] == 0) {
+                        continue;
+                    }
+                    int b = buckets[c];
+                    if (!known[b]) {
+                        byBucket[b] = table.strategyOrCall(hand.key(b), legal)[choice];
+                        known[b] = true;
+                    }
+                    model[c] *= (1 - temper) * byBucket[b] + temper;
+                }
+            }
         }
 
         /** Both ranges once the whole board is out. */
@@ -268,7 +337,7 @@ public final class BlueprintStrategy extends BotStrategy {
             for (int i = 0; i < shown; i++) {
                 used |= 1L << board[i];
             }
-            for (double[] w : weights) {
+            for (double[] w : new double[][] {weights[0], weights[1], model}) {
                 for (int c = 0; c < Cards.COMBOS; c++) {
                     int[] hole = Cards.combo(c);
                     if ((used & (1L << hole[0] | 1L << hole[1])) != 0) {
