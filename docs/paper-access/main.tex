@@ -35,22 +35,23 @@
 \corresp{Corresponding author: Saksham Dubey (e-mail: saksham.dubey2024@vitstudent.ac.in).}
 
 \begin{abstract}
-Superhuman poker agents compute approximate equilibria on large computing clusters and do not
-adapt to individual opponents. We study how far a single consumer laptop can go, and how to find
+Superhuman poker agents compute approximate equilibria on large clusters and do not adapt to
+opponents. We study how far a single consumer laptop can go, and how to find
 where such an agent is weak. We train heads-up No-Limit Texas Hold'em strategies with parallel,
 linearly weighted Monte Carlo counterfactual regret minimization at about two hundred thousand
 iterations per second on twelve cores, after checking the solvers against published values on
 Kuhn and Leduc poker. We measure strength with local best response, an exploiting opponent that
-knows its own cards and the strategy it faces, restricted to one betting round at a time to
-locate leaks. The river is the weak point: its leak grows from 276 to 736 milli-big-blinds per
+knows the strategy it faces, restricted to one betting round at a time to locate leaks. The river is the weak point: its leak grows from 276 to 736 milli-big-blinds per
 hand between two and sixty million iterations as the strategy overfits its card abstraction,
 and richer river buckets do not help. Solving the river during play, hand by hand, removes the
 leak and cuts total exploitability after the flop by seventy percent. We also show that a
 common way of seeding parallel random number generators silently correlates the samples of
-evaluation threads and understates error margins. Finally, a bounded opponent model built from
-public information raises a simulation-based agent's win rate against each of six opponent
-types, including one designed to punish adaptation, and plays exactly as the base agent when it
-has no evidence. The game engine, solvers and evaluation tools are released as open source.
+evaluation threads and understates error margins. Finally, an adaptation layer that leaves the
+trained strategy only when public evidence, compared with the strategy's own behavior in each
+situation, says it pays, multiplies the win rate by two to seven against flawed
+opponents, including one that switches style to punish adaptation, and stays close to the
+trained strategy against sound ones. The game engine, solvers and evaluation tools are released
+as open source.
 \end{abstract}
 
 \begin{keywords}
@@ -99,9 +100,11 @@ removes the river leak (from 736 to 7~\mbb) and cuts exploitability after the fl
 with a thread index makes streams that are shifted copies of each other. In our LBR runs this
 shrank the effective sample size and produced a spurious edge; we give the fix and a test that
 detects it.
-\item A bounded opponent-adaptation layer built only from information visible to the whole
-table, with caps that keep a wrong or manipulated read from moving the agent far, and an
-evaluation against seven opponents, including one designed to punish adaptation.
+\item An opponent-adaptation layer on the blueprint, built only from information visible to the
+whole table. It compares each opponent's fold rate per situation with the blueprint's own, values
+a deviation against both the observed and the blueprint-implied opponent, and deviates only by the
+difference, within a cap. Against eight opponents it multiplies the win rate by 2.4 to 7.3
+against flawed ones and stays within error against sound ones, with one small, measured cost.
 \end{enumerate}
 
 Section~\ref{sec:related} reviews related work. Section~\ref{sec:setting} defines the game and
@@ -303,43 +306,61 @@ use the corrected generator.
 % ============================================================================
 \section{Opponent Adaptation}
 \label{sec:adaptation}
-The adaptation layer was first built on a simulation-based base agent, described here; placing it
-on the blueprint is in progress (Section~\ref{sec:results-adaptation}).
-
-\subsection{Base Agent}
-Before the flop the base agent opens a share of hands that widens toward the button, from 15\%
-in the earliest seat to 45\% on the button. After the flop it estimates its equity by dealing the
-unseen cards 600 times (800 for the adaptive agent) against a range for each opponent, defined by
-a width and a connectedness set from the opponent's actions in the hand. It bets for value when
-its equity $e$ exceeds $0.2 + 0.8/(n+1)$ for $n$ opponents and calls when $e \ge c/(P+c) + m$,
-with margin $m = 0.04$ on the river and $0.08$ otherwise, plus $0.05$ after a raise.
+The adaptation layer sits on top of the blueprint with river re-solving (the Expert agent). It
+changes play only after the flop, only from information the whole table saw, and only when the
+evidence says that leaving the blueprint pays. With no evidence it plays exactly as the blueprint.
 
 \subsection{Opponent Book}
-For each opponent the agent counts, across all observed hands, voluntary entries, preflop
-raises, folds to preflop raises and to postflop bets, postflop aggression, and, when cards are
-shown after postflop betting, how many such hands were weak (strength below 0.45). Each rate is
-shrunk toward a typical player's value $p_0$:
-\begin{equation}
-\hat{p} = \frac{w\,p_0 + k}{w + N},
-\label{eq:shrink}
-\end{equation}
-where $k$ counts occurrences in $N$ opportunities, with $w=12$ before the flop, $8$ after it and
-$4$ for the bluff rate.
+For each opponent the agent counts, over all observed hands, voluntary entries, preflop raises,
+postflop aggression and, from cards shown at showdown, how often postflop betting was a bluff.
+Folding is recorded \emph{by situation}: whether the opponent faced the first bet of a betting
+round or a raise, and the price of the bet, $c/(P+c)$ for a call of $c$ into a pot $P$, in three
+classes (below 0.25, 0.25 to 0.4, above 0.4). This gives six cells. A single fold rate was not
+enough: sound opponents fold often to large bets and rarely to small ones, and a global rate made
+them look exploitable when they were not.
 
-\subsection{Bounded Adjustments}
-Five judgments change with the estimates, each within a fixed cap: the opponent's range (width
-$\times0.4$ to $\times2.5$, connectedness $\times0.35$ to $\times1.3$), bluffing (at most 65\%
-of eligible spots, never into three or more players), value betting (bar $\pm0.08$, size 0.4 to
-1.1 pots), calling (margin $-0.07$ to $+0.08$) and opening (share $\times0.8$ to $\times1.5$).
-A bet of $b$ pots breaks even as a bluff when all opponents fold with probability $b/(1+b)$; with
-$F$ the product of their fold-to-bet estimates, the agent bluffs a weak hand with probability
+Each cell's fold rate is compared with the rate at which the blueprint itself folds in that cell,
+measured once in self-play (0.40, 0.44, 0.74 after a first bet of increasing price; 0.13, 0.60,
+0.60 after a raise). A cell seen $n$ times contributes the shift
 \begin{equation}
-\min\!\Big(0.65,\; s\,\big(0.15 + 2.5\,(F - \tfrac{b}{1+b} - 0.04)\big)\Big),
-\label{eq:bluff}
+\delta = \frac{n}{n+20}\,\big(\hat f - f_{\mathrm{bp}}\big),
+\label{eq:shift}
 \end{equation}
-when the bracket is positive, with $b=0.7$ and $s$ equal to 0.55, 0.8 and 1 on the flop, turn
-and river. When every estimate equals the typical player the agent plays exactly as the base
-agent; a test confirms identical decisions in 400 random situations.
+set to zero when $|\delta| < 0.1$. This dead zone keeps sampling noise against sound opponents
+from being read as a weakness.
+
+\subsection{Two Valuations}
+At each postflop decision the agent values its actions as local best response does
+(Section~\ref{sec:evaluation}): against a range for the opponent, with the opponent's reply to a
+bet given by a fold probability, and checking down afterwards. It does this twice, with the same
+sampled cards (common random numbers) so that the difference is not noise:
+\begin{itemize}
+\item \emph{believed}: the opponent's range implied by the blueprint for the actions so far, and
+the blueprint's own fold probabilities;
+\item \emph{observed}: the same range tempered by the opponent's measured aggression and bluffing
+(widened when it bets more and bluffs more than the blueprint does, baselines 0.27 and 0.55), and
+fold probabilities shifted by \eqref{eq:shift}. Extra folds remove the weakest hands of the range
+first, as a real player's folds would.
+\end{itemize}
+Let $a^\ast$ be the best action under the observed valuation, $V^{o}$, and $\bar V$ the value of
+the blueprint's own mixed strategy. The gain of deviating is what $a^\ast$ adds under the
+observed model beyond what it would add under the believed one:
+\begin{equation}
+g = \big(V^{o}(a^\ast) - \bar V^{o}\big) - \max\!\big(0,\; V^{b}(a^\ast) - \bar V^{b}\big).
+\label{eq:gain}
+\end{equation}
+Subtracting the believed term removes actions that look good only because the valuation itself is
+crude (the check-down model favors some actions against any opponent). The agent plays $a^\ast$
+with probability
+\begin{equation}
+\lambda = 0.6 \cdot \frac{h}{h+30} \cdot \min\!\Big(1,\; \frac{g}{0.25\,P}\Big)
+\label{eq:lambda}
+\end{equation}
+for $h$ hands observed and pot $P$, and the blueprint's strategy otherwise. The cap of 0.6 keeps
+some blueprint play in every spot, so a wrong or manipulated read cannot remove it entirely.
+
+An earlier version of the layer, on a simulation-based agent, raised its win rate against all
+six opponent types tested; we report the blueprint version here.
 
 % ============================================================================
 \section{Experiments}
@@ -453,40 +474,71 @@ iterations; 100\,000 hands per value.}
 
 \subsection{Opponent Adaptation}
 \label{sec:results-adaptation}
-Table~\ref{tab:adapt} reports heads-up matches of the simulation-based base agent and its
-adaptive version against six opponents: two rule-based agents (Easy, Solid) and four with
-deliberate flaws (Caller never folds; Maniac bets or raises 65\% of the time; Over-folder folds
-to any postflop bet without a strong hand; Chameleon alternates between over-folding and calling
-every 1\,500 decisions, to punish an agent that adapts).
+Table~\ref{tab:adapt} reports heads-up matches of the Expert agent (the 60-million-iteration
+blueprint with river re-solving) with and without the adaptation layer, against eight opponents,
+all with the same seed. Three are sound agents: Easy and Solid are rule-based; Simulation
+estimates its equity by dealing out the unseen cards; Hard is Simulation with a bounded opponent
+model of its own. Four have deliberate flaws: Caller never folds; Maniac bets or raises 65\% of the
+time; Over-folder folds to any postflop bet without a strong hand; Chameleon alternates between
+over-folding and calling every 1\,500 decisions, to punish an agent that adapts.
 
 \begin{table}[t]
-\caption{Heads-Up Win Rates (\bbh, 95\% Intervals) of the Base and Adaptive Agents}
+\caption{Heads-Up Win Rates (\bbh, 95\% Intervals) of the Expert Agent With and Without
+Adaptation; 20\,000 Hands Unless Noted}
 \label{tab:adapt}
 \centering
-\begin{tabular}{lrrr}
+\begin{tabular}{lrr}
 \hline
-Opponent & Hands & Base agent & Adaptive agent \\
+Opponent & Blueprint & Adaptive \\
 \hline
-Caller & 200\,000 & $345.0\pm5.4$ & $1079.4\pm15.4$ \\
-Maniac & 200\,000 & $292.8\pm11.0$ & $562.8\pm15.2$ \\
-Chameleon & 200\,000 & $105.2\pm2.8$ & $233.8\pm6.4$ \\
-Over-folder & 200\,000 & $41.4\pm1.3$ & $65.5\pm1.3$ \\
-Solid & 300\,000 & $35.5\pm1.7$ & $57.1\pm1.6$ \\
-Easy & 300\,000 & $28.9\pm2.3$ & $42.1\pm2.5$ \\
+Caller & $243\pm31$ & $1770\pm75$ \\
+Maniac & $273\pm45$ & $643\pm59$ \\
+Chameleon & $88\pm16$ & $367\pm33$ \\
+Over-folder & $45\pm9$ & $38\pm9$ \\
+Solid & $37\pm10$ & $34\pm11$ \\
+Easy & $27\pm12$ & $22\pm13$ \\
+Simulation & $16\pm14$ & $17\pm17$ \\
+Hard (60\,000 hands) & $34\pm10$ & $17\pm12$ \\
 \hline
 \end{tabular}
 \end{table}
 
-The adaptive agent wins more than the base agent against every opponent with no overlap between
-intervals, more than doubles its win rate against Chameleon, and beats the base agent directly by
-$8.4\pm3.4~\bbh$ over 200\,000 hands. At a six-player table of sound agents the advantage is
-small (adaptive $+7.8$ and $+3.9$, base $-2.1$ and $-3.8$, $\pm2.9$, over 600\,000 hands).
+Against the three opponents with large flaws the layer multiplies the win rate: by 7.3 against
+Caller, 2.4 against Maniac and 4.2 against Chameleon, which switches style to punish adaptation.
+Against the five others the two agents are within each other's intervals, except Hard, where the
+adaptive agent gives up about 17~\bbh: Hard's own adjustments move it away from the blueprint
+in ways our fold model reads, wrongly, as weakness. Both versions beat every opponent.
 
-\pending{The same layer on the blueprint: win rates against the six opponents, and its own LBR
-exploitability compared with the blueprint's, to show what adaptation costs in safety.}
+The Over-folder result is worth noting. It folds too often, but the blueprint already exploits
+that by betting often; its fold rate per situation is close enough to the blueprint's own that the
+dead zone holds the layer back. Earlier versions without situational fold rates shoved all-in
+against it and lost.
 
-\pending{Ablations: each of the five adjustments switched off in turn; learning curves of the
-gain against hands observed.}
+Table~\ref{tab:tradeoff} shows the trade-off between exploitation and safety as the cap and the
+dead zone change. A cap of 0.15 already earns half the gain against Caller; raising it to 0.6
+without the dead zone gains a little more against weak opponents and loses against the sound
+ones (Simulation $-33$, Hard $-4$). Switching off single parts of the layer (tempering, fold
+shifts, only aggressive or only passive deviations) changed results by less than their margins
+at 20\,000 hands, so we do not report those ablations separately.
+
+\begin{table}[t]
+\caption{Exploitation Against Safety: Win Rates (\bbh, 20\,000 Hands) for Settings of the
+Cap and the Dead Zone; Intervals $\pm$10 to $\pm$75}
+\label{tab:tradeoff}
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\hline
+Setting & Caller & Maniac & Chameleon & Simulation & Hard \\
+\hline
+Blueprint & 243 & 273 & 88 & 16 & 32 \\
+Cap 0.15 & 814 & 403 & 190 & 9 & 14 \\
+Cap 0.3 & 1261 & 526 & 275 & $-2$ & 2 \\
+Cap 0.6, no dead zone & 1832 & 703 & 412 & $-33$ & $-4$ \\
+Cap 0.6, dead zone 0.1 & 1770 & 643 & 378 & 17 & 6 \\
+\hline
+\end{tabular}
+\end{table}
 
 % ============================================================================
 \section{Limitations}
@@ -504,10 +556,11 @@ results are for one betting abstraction.
 
 \textbf{Synthetic opponents.} All opponents in Table~\ref{tab:adapt} were written by us, and four
 are extreme by design. Gains against people will be smaller. Chameleon tests one switching
-pattern, not an adversary that models our agent.
+pattern, not an adversary that models our agent, and against Hard, which does adapt, the layer
+costs about 17~\bbh.
 
-\textbf{Informal safety.} The caps bound how far the adaptive agent moves, not its
-exploitability; a restricted Nash response~\cite{johanson2008} on top of the blueprint would give
+\textbf{Informal safety.} The cap and the dead zone bound how often the adaptive agent leaves
+the blueprint, not its exploitability; a restricted Nash response~\cite{johanson2008} on top of the blueprint would give
 a formal bound.
 
 \textbf{No external benchmark or human study yet.} \pending{Matches against Slumbot; a study with
@@ -522,9 +575,10 @@ map of where a strategy is weak; for our strategies the map points at the river,
 as the strategy overfits its card abstraction. Richer buckets do not remove it; solving the river
 hand by hand during play does, and cuts exploitability after the flop by 70\%. Careful seeding of parallel generators matters as
 much as the solver for trustworthy measurements. A bounded opponent model built from public
-information raises win rates against every opponent type tested, including one built to punish
-it. Next steps are re-solving from the turn, moving the adaptation layer onto the blueprint as
-a restricted Nash response, and external benchmarks.
+information, which leaves the blueprint only when the evidence beats the blueprint's own
+behavior, multiplies win rates against flawed opponents and costs little against sound ones. Next
+steps are re-solving from the turn, a restricted Nash response for a formal safety bound, and
+external benchmarks against Slumbot and human players.
 
 \section*{Data and Code Availability}
 The game engine, server, solvers and evaluation tools, with the commands and seeds behind every
